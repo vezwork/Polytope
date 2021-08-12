@@ -1,0 +1,91 @@
+<!-- goal: generalize mathquill.com functionality-->
+
+<!-- implementation note: it would be great if slots are lightweight enough that they can be
+extensively composed. -->
+
+<!-- tangential idea: A web3 code sharing slot and a versioning slot e.g.
+
+<<CODESHARE (inputs:: package name) (outputs:: nothin (side effect))>>
+<<VERSIONER [history tree editor / tagger?]>>
+
+-->
+
+<!-- model idea comment: transformers can be implemented as slots with access to their slot outputs -->
+<!-- model idea comment: strings are a workaround to normal slots for simplicity of rendering -->
+<!-- model: nested things with state that compile to js (executable) e.g.
+
+<<HTML EDITOR>>
+
+<<TIMELINE EDITOR (outputs:: some sort of timeline?)>>
+<<VOICE RECORDER (outputs:: external sound file, promise for loading that file)>->
+<<HISTORY RECORDER (inputs:: code from slot) (outputs:: diffs array)>>
+
+<<MARKDOWN EDITOR (outputs:: a comment)>>
+
+function hello() {
+    const color = <<COLOR EDITOR (outputs:: rgba strings)>>
+
+    const graph = <<GRAPH EDITOR (outputs:: adjacency 2dArrays)>>
+
+    const isGood = <<CHECKBOX (outputs:: true or false)>>
+
+    const aVec3 = <<VECTOR EDITOR (outputs:: vector contructor)>>
+    const bVec3 = <<VECTOR EDITOR (outputs:: vector contructor)>>
+    const rVec3 = <<LINEAR ALG OPERATIONS bVec3 + aVec3 (outputs:: function to add two vectors)>>
+}
+
+<<MARKDOWN EDITOR (outputs:: a comment)>>
+
+-->
+
+<script>
+    // question: how to represent the caret being "inside" a slot
+    // - let's think of a character as an example:
+    //   - characters do not have an "inside": the caret can only be before or after a character.
+    //   - If the start of the caret was before a character, and the end was after that character,
+    //     then that could be considered inside. BUT then deleting would intuitively delete that
+    //     entire character rather than the thing within it.
+    //   - Given that counterexample to the before/after idea, I think there needs to be a way to
+    //     recursively address a caret.
+    // - Should it be possible for the caret start to be inside a slot while the caret's end is
+    //   outside? YES, highting half a vector and half the equation it is in will not be possible.
+    // - Caret start and end addresses can both use the same recursive addressing scheme, just
+    //   with different addresses.
+    // - It should be possible to look at a caret address and not need to know the size of a
+    //   slot's "caret space" (the number of caret addresses within that slot, and the slots within
+    //   it) which the caret is inside in order to tell where the start / end address of that slot
+    //   is.
+    // - So, a proposal for the caret address scheme is: 10.7.0 meaning that, in the slot
+    //   at 10, there is a slot at 7, and in that slot the cursor is at 0. More meaningfully the
+    //   the slot at 10 is between 10 and 11, just like the character "a" in the string "ab" is in
+    //   between caret 0 and caret 1 (using traditional string caret addressing).
+    // - A caveat of the above addressing scheme is that it doesn't include the widths of
+    //   slots. Could this cause issues when highlighting? Well, the ordering of addresses is not a
+    //   problem: addressess are unambiguously ordered e.g. 10.7.0 > 10.5.99 < 11 < 100.13.69
+    // - Another caveat is that this may result in slots having to manage their own addressing. I
+    //   would like slots to be able to easy ignore addressing. Slot address widths would affect how
+    //   the left and right arrow behave: if a caret is at the end of a slot and the right arrow is
+    //   pressed, then the caret would move out of the slot e.g. 46.9 -> right arrow -> 47. Slots
+    //   should be able to prevent left/right arrow navigation out of the slot without setting a
+    //   silly width.
+    // - Implementation vs notation note: 44.69.7.0.1101 = [44, 69, 8, 0, 1101].
+    // - Should slots be allowed to define their own addressing scheme? 2D slots would need a
+    //   different addressing scheme.
+
+    // - Yes actually i think slots should handle their own addressing. But then how does copy&paste
+    //   work?
+    //
+
+    class ExampleElement extends HTMLElement {
+        constructor() {
+            // Always call super first in constructor
+            super();
+
+            // Create a shadow root
+            this.attachShadow({mode: 'open'});
+            this.shadowRoot.append(document.createTextNode('hello!'));
+            this.style.color = 'blue';
+        }
+    }
+    customElements.define('example-element', ExampleElement);
+</script>
