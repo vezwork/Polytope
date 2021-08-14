@@ -19,10 +19,10 @@
 
             this.attachShadow({mode: 'open'});
 
-            //this.style.setProperty('--editor-color', 'red');
             const styleEl = document.createElement('style');
             styleEl.textContent = `
                 :host {
+                    --editor-name: 'editor';
                     --editor-color: #017BFF;
                     --editor-name-color: white;
                     --editor-background-color: #E6F2FF;
@@ -32,11 +32,12 @@
                     --highlight-editor-name-color: black;
                     --highlight-editor-background-color: yellow;
 
-                    border-bottom: 2px solid var(--editor-color);
-                    display: inline-block;
+                    display: inline-flex;
+                    justify-content: center;
+
                     margin: 2px 2px 0 2px;
                     user-select: none;
-                    border-radius: 4px 4px 0 0;
+                    border-radius: 4px;
                     background: var(--editor-background-color);
                     padding: 0 2px;
                     box-sizing: border-box;
@@ -47,7 +48,7 @@
                     min-width: 1rem;
                 }
                 :host(:focus)::after {
-                    content: 'hello';
+                    content: var(--editor-name);
                     font-size: 14px;
                     padding: 1px 8px 2px 8px;
                     background: var(--editor-color);
@@ -57,6 +58,7 @@
                     left: -2px;
                     border-radius: 0 0 4px 4px;
                     font-family: monospace;
+                    z-index: 10;
                 }
                 :host(:focus) {
                     border: 2px solid var(--editor-color);
@@ -65,7 +67,7 @@
                     outline: none;
                 }
                 :host(:not(:focus)) {
-                    color: var(--editor-color);
+                    color: black;
                 }
             `;
             this.shadowRoot.append(styleEl);
@@ -86,37 +88,6 @@
             });
             this.addEventListener('mousemove', (e) => e.stopPropagation());
             this.addEventListener('keydown', (e) => e.stopPropagation());
-            this.addEventListener('exitSubEditor', (e) => {
-                e.stopPropagation();
-                this.focus();
-            });
-            this.addEventListener('deleteSubEditor', (e) => {
-                e.stopPropagation();
-                this.focus();
-            });
-        }
-
-        exit(leftOrRight = 'left') {
-            if (this.parentElement) {
-                this.parentElement.dispatchEvent(new CustomEvent('exitSubEditor'), {
-                    detail: {
-                        editor: this,
-                        direction: leftOrRight
-                    }
-                });
-            }
-            this.blur();
-        }
-
-        delete() {
-            if (this.parentElement) {
-                this.parentElement.dispatchEvent(new CustomEvent('deleteSubEditor'), {
-                    detail: {
-                        editor: this,
-                    }
-                });
-            }
-            this.blur();
         }
 
         get javaScriptCode() {
@@ -124,15 +95,206 @@
         }
     }
 
+    class JoinerElement extends HTMLElement {
+
+        parentEditor = undefined;
+        isHighlighted = false;
+
+        constructor({ parentEditor, leftCode=[], rightCode=[] }={}) {
+            super();
+            if (!parentEditor) throw 'no parent editor on Joiner element';
+            this.parentEditor = parentEditor;
+
+            this.leftEditor = new TextEditorElement({ parentEditor: this, code: leftCode });
+            this.rightEditor = new TextEditorElement({ parentEditor: this, code: rightCode });
+
+            this.attachShadow({mode: 'open'});
+
+            const styleEl = document.createElement('style');
+            styleEl.textContent = `
+                :host {
+                }
+            `;
+            const plusEl = document.createElement('span');
+            plusEl.textContent = '+';
+            this.shadowRoot.append(styleEl, this.leftEditor, plusEl, this.rightEditor);
+
+            this.addEventListener('focus', (e) => {
+                e.stopPropagation();
+                this.focus();
+            });
+            this.addEventListener('blur', (e) => e.stopPropagation());
+            this.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                this.focus();
+            });
+            this.addEventListener('mousemove', (e) => e.stopPropagation());
+            this.addEventListener('keydown', (e) => e.stopPropagation());
+        }
+
+        focus(fromEl, position, isSelecting) {
+            super.focus();
+
+            // TODO: add handling for backspace out of right editor
+
+            if (fromEl !== undefined && position !== undefined) {
+                if (fromEl === this.leftEditor) { // case: entering from leftEditor
+                    if (position === 1) {
+                        this.blur();
+                        this.rightEditor.focus(this, 1, false);
+                    }
+                    if (position === 0) {
+                        this.blur();
+                        this.parentEditor.focus(this, 0, false);
+                    }
+                    return;
+                } else if (fromEl === this.rightEditor) { // case: entering from rightEditor
+                    if (position === 1) {
+                        this.blur();
+                        this.parentEditor.focus(this, 1, false);
+                    }
+                    if (position === 0) {
+                        this.blur();
+                        this.leftEditor.focus(this, 0, false);
+                    }
+                    return;
+                }
+
+                if (position === 1) { // case: entering from a parent on the left
+                    this.blur();
+                    this.leftEditor.focus(this, 1, false);
+                }
+                if (position === 0) { // case: entering from a parent on the right
+                    this.blur();
+                    this.rightEditor.focus(this, 0, false);
+                }
+                return;
+            }
+            this.blur();
+            this.rightEditor.focus(this, 1, false);
+        }
+
+        getOutput() {
+            return `(${this.leftEditor.getOutput()} + ${this.rightEditor.getOutput()})`;
+        }
+    }
+
+    class DivJoinerElement extends HTMLElement {
+
+        parentEditor = undefined;
+        isHighlighted = false;
+
+        constructor({ parentEditor, leftCode=[], rightCode=[] }={}) {
+            super();
+            if (!parentEditor) throw 'no parent editor on Joiner element';
+            this.parentEditor = parentEditor;
+
+            this.leftEditor = new TextEditorElement({ parentEditor: this, code: leftCode });
+            this.rightEditor = new TextEditorElement({ parentEditor: this, code: rightCode });
+
+            this.attachShadow({mode: 'open'});
+
+            const styleEl = document.createElement('style');
+            styleEl.textContent = `
+                :host {
+                    display: inline-flex;
+                    vertical-align: middle;
+                    flex-direction: column;
+                    align-items: stretch;
+                }
+
+                .div {
+                    width: 100%;
+                    height: 2px;
+                    background: currentColor;
+                }
+            `;
+            const divEl = document.createElement('div');
+            divEl.className += 'div';
+            this.shadowRoot.append(styleEl, this.leftEditor, divEl, this.rightEditor);
+
+            this.addEventListener('focus', (e) => {
+                e.stopPropagation();
+                this.focus();
+            });
+            this.addEventListener('blur', (e) => e.stopPropagation());
+            this.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                this.focus();
+            });
+            this.addEventListener('mousemove', (e) => e.stopPropagation());
+            this.addEventListener('keydown', (e) => e.stopPropagation());
+        }
+
+        focus(fromEl, position, isSelecting) {
+            super.focus();
+
+            // TODO: add handling for backspace out of right editor
+
+            if (fromEl !== undefined && position !== undefined) {
+                if (fromEl === this.leftEditor) { // case: entering from leftEditor
+                    if (position === 1) {
+                        this.blur();
+                        this.rightEditor.focus(this, 1, false);
+                    }
+                    if (position === 0) {
+                        this.blur();
+                        this.parentEditor.focus(this, 0, false);
+                    }
+                    return;
+                } else if (fromEl === this.rightEditor) { // case: entering from rightEditor
+                    if (position === 1) {
+                        this.blur();
+                        this.parentEditor.focus(this, 1, false);
+                    }
+                    if (position === 0) {
+                        this.blur();
+                        this.leftEditor.focus(this, 0, false);
+                    }
+                    return;
+                }
+
+                if (position === 1) { // case: entering from a parent on the left
+                    this.blur();
+                    this.leftEditor.focus(this, 1, false);
+                }
+                if (position === 0) { // case: entering from a parent on the right
+                    this.blur();
+                    this.rightEditor.focus(this, 0, false);
+                }
+                return;
+            }
+            this.blur();
+            this.rightEditor.focus(this, 1, false);
+        }
+
+        getOutput() {
+            return `(${this.leftEditor.getOutput()}/${this.rightEditor.getOutput()})`;
+        }
+    }
+
     class TextEditorElement extends EditorElement {
 
-        code = [' '];
+        code = [];
         caret = 0;
         minorCaret = 0;
         isCaretInSlot = false;
 
-        constructor() {
+        constructor({ code=[] }={}) {
             super(...arguments);
+
+            this.code = code;
+            for (const slotOrChar of code) {
+                if (typeof slotOrChar !== 'string') {
+                    const slot = slotOrChar;
+                    slot.parentEditor = this;
+                }
+            }
+
+            this.style.setProperty('--editor-name', `'math'`);
+            this.style.setProperty('--editor-color', '#FFD600');
+            this.style.setProperty('--editor-name-color', 'black');
+            this.style.setProperty('--editor-background-color', '#FFFBE9');
 
             this.styleEl = document.createElement('style');
             this.styleEl.textContent = `
@@ -267,6 +429,7 @@
                         focuser.focus(this, 0, e.shiftKey);
                     }
                 } else if (e.key === "Enter") {
+                    console.log(this.parentEditor)
                     // note: disabling enter for now until I can do it right
                     // this.insertText("\n");
                     // const focuser = this.moveCaret(1);
@@ -293,6 +456,7 @@
                         focuser.focus(this, 1, e.shiftKey);
                     }
                 } else if (e.key === "Control") {
+                   
 
                 } else if (e.key === "Tab") {
                     this.insertText("\t");
@@ -325,6 +489,43 @@
                     this.moveCaretDown(e.shiftKey);
                     this.codeEl.innerHTML = '';
                     this.codeEl.append(...this.displayHTML());
+                } else if (e.key === '+') {
+                    // TODO: flatten nested +  ?
+                    const pre = this.code.slice(0, this.caret);
+                    const post = this.code.slice(this.caret, this.code.length);
+                    const focuser = new JoinerElement({ parentEditor: this, leftCode: pre, rightCode: post });
+                    this.code = [focuser];
+                    this.codeEl.innerHTML = '';
+                    this.codeEl.append(...this.displayHTML());
+                    this.blur();
+                    focuser.focus();
+
+                } else if (e.key === '-') {
+                    // elevate left and right (non commutative)
+
+                } else if (e.key === '/') {
+                    // elevate left and right (non commutative)
+                    const pre = this.code.slice(0, this.caret);
+                    const post = this.code.slice(this.caret, this.code.length);
+                    const focuser = new DivJoinerElement({ parentEditor: this, leftCode: pre, rightCode: post });
+                    this.code = [focuser];
+                    this.codeEl.innerHTML = '';
+                    this.codeEl.append(...this.displayHTML());
+                    this.blur();
+                    focuser.focus();
+
+                } else if (e.key === '*') {
+
+                } else if (e.key === '^') {
+                    // elevate left and right (non commutative)
+
+                } else if (e.key === '=') {
+
+                } else if (e.key === '(') {
+                    //
+
+                } else if (e.key === ')') {
+
                 } else {
                     if (e.ctrlKey || e.metaKey) return;
                     this.insertText(e.key);
@@ -359,15 +560,16 @@
         }
 
         moveCaret(change, isSelecting) {
-            if (this.parentEditor) {
-                if (!isSelecting) {
-                    if (this.caret + change > this.code.length || this.caret + change < 0) {
+            if (this.caret + change > this.code.length || this.caret + change < 0) {
+                if (this.parentEditor) {
+                    if (!isSelecting) {
                         return this.parentEditor;
                     }
                 }
+                return;
             }
 
-            const newCaret = Math.min(Math.max(0, this.caret + change), this.code.length);
+            const newCaret = this.caret + change;
 
             if (isSelecting) {
                 this.caret = newCaret;
@@ -463,13 +665,7 @@
 
                 } else {
                     const slot = slotOrChar;
-                    const slotContainerEl = document.createElement('span');
-                    slotContainerEl.appendChild(slot);
-                    if ((i < this.caret && i >= this.minorCaret) || (i >= this.caret && i < this.minorCaret)) {
-                        slotContainerEl.style.background = 'black';
-                        slotContainerEl.style.color = 'white';
-                    }
-                    results.push(slotContainerEl);
+                    results.push(slot);
                 }
             }
             if (this.caret === this.code.length) {
@@ -541,6 +737,8 @@
     }
     customElements.define('text-editor', TextEditorElement);
     customElements.define('polytope-editor', EditorElement);
+    customElements.define('joiner-editor', JoinerElement);
+    customElements.define('div-joiner-editor', DivJoinerElement);
 
     document.getElementById('outputgetter').addEventListener('click', () => {
         const out = document.querySelector('text-editor').getOutput();

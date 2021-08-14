@@ -88,4 +88,20 @@ function hello() {
         }
     }
     customElements.define('example-element', ExampleElement);
+
+
+    // dragging editors?
+
+    // enter:
+            // - focus parent and let keydown through (default)
+            // - this.parentEditor.focus({ event: 'enter' })
+            // enter on empty, backspace on empty:
+            // - focus parent and request that the parent editor deletes this
+
+            // leave left and right:
+            // - should keyboard automatically leave the element if it does not change the state?
+            // - no, caret is not part of state so this wouldn't even work on the text editor.
+
+            // focused
+            // highlighted - highlighted by the parent editor.
 </script>
