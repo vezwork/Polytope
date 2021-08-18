@@ -2,6 +2,7 @@
 
 <text-editor></text-editor>
 <br><br><button id="outputgetter">Get Output</button>
+<div id="output"></div>
 
 <script type="module">
     import { withIndex } from "./Iterable.js";
@@ -35,11 +36,10 @@
                     display: inline-flex;
                     justify-content: center;
 
-                    margin: 2px 2px 0 2px;
                     user-select: none;
                     border-radius: 4px;
                     background: var(--editor-background-color);
-                    padding: 0 2px;
+                    padding: 4px;
                     box-sizing: border-box;
                     position: relative;
                     font-family: monospace;
@@ -273,6 +273,164 @@
         }
     }
 
+    class JoinerExpElement extends HTMLElement {
+
+        parentEditor = undefined;
+        isHighlighted = false;
+
+        constructor({ parentEditor, code=[] }={}) {
+            super();
+            if (!parentEditor) throw 'no parent editor on Joiner element';
+            this.parentEditor = parentEditor;
+
+            this.editor = new TextEditorElement({ parentEditor: this, code });
+
+            this.attachShadow({mode: 'open'});
+
+            const styleEl = document.createElement('style');
+            styleEl.textContent = `
+                :host {
+                    vertical-align: super;
+                }
+                text-editor {
+                    transform: scale(0.9);
+                }
+            `;
+            this.shadowRoot.append(styleEl, this.editor);
+
+            this.addEventListener('focus', (e) => {
+                e.stopPropagation();
+                this.focus();
+            });
+            this.addEventListener('blur', (e) => e.stopPropagation());
+            this.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                this.focus();
+            });
+            this.addEventListener('mousemove', (e) => e.stopPropagation());
+            this.addEventListener('keydown', (e) => e.stopPropagation());
+        }
+
+        focus(fromEl, position, isSelecting) {
+            super.focus();
+
+            if (fromEl !== undefined && position !== undefined) {
+                if (fromEl === this.editor) { // case: entering from leftEditor
+                    if (position === 1) {
+                        this.blur();
+                        this.parentEditor.focus(this, 1, false);
+                    }
+                    if (position === 0) {
+                        this.blur();
+                        this.parentEditor.focus(this, 0, false);
+                    }
+                    return;
+                }
+
+                if (position === 1) { // case: entering from a parent on the left
+                    this.blur();
+                    this.editor.focus(this, 1, false);
+                }
+                if (position === 0) { // case: entering from a parent on the right
+                    this.blur();
+                    this.editor.focus(this, 0, false);
+                }
+                return;
+            }
+            this.blur();
+            this.editor.focus(this, 1, false);
+        }
+
+        getOutput() {
+            return `**(${this.editor.getOutput()})`;
+        }
+    }
+
+    class JoinerRadicalElement extends HTMLElement {
+
+        parentEditor = undefined;
+        isHighlighted = false;
+
+        constructor({ parentEditor, code=[] }={}) {
+            super();
+            if (!parentEditor) throw 'no parent editor on Joiner element';
+            this.parentEditor = parentEditor;
+
+            this.editor = new TextEditorElement({ parentEditor: this, code });
+
+            this.attachShadow({mode: 'open'});
+
+            const styleEl = document.createElement('style');
+            styleEl.textContent = `
+                :host {
+                    display: inline-flex;
+                    align-items: stretch;
+                    vertical-align: middle;
+                }
+                text-editor {
+                    border-top: 2px solid currentColor;
+                    border-radius: 0;
+                }
+                img {
+                    width: 30px;
+                    flex-shrink: 1;
+                    flex-grow: 1;
+                    object-fit: fill;
+                }
+
+            `;
+            const objEl = document.createElement('img');
+            objEl.src = './radical.svg';
+            this.shadowRoot.append(styleEl, objEl, this.editor);
+
+            this.addEventListener('focus', (e) => {
+                e.stopPropagation();
+                this.focus();
+            });
+            this.addEventListener('blur', (e) => e.stopPropagation());
+            this.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                this.focus();
+            });
+            this.addEventListener('mousemove', (e) => e.stopPropagation());
+            this.addEventListener('keydown', (e) => e.stopPropagation());
+        }
+
+        focus(fromEl, position, isSelecting) {
+            super.focus();
+
+            if (fromEl !== undefined && position !== undefined) {
+                if (fromEl === this.editor) { // case: entering from leftEditor
+                    if (position === 1) {
+                        this.blur();
+                        this.parentEditor.focus(this, 1, false);
+                    }
+                    if (position === 0) {
+                        this.blur();
+                        this.parentEditor.focus(this, 0, false);
+                    }
+                    return;
+                }
+
+                if (position === 1) { // case: entering from a parent on the left
+                    this.blur();
+                    this.editor.focus(this, 1, false);
+                }
+                if (position === 0) { // case: entering from a parent on the right
+                    this.blur();
+                    this.editor.focus(this, 0, false);
+                }
+                return;
+            }
+            this.blur();
+            this.editor.focus(this, 1, false);
+        }
+
+        getOutput() {
+            return `Math.sqrt(${this.editor.getOutput()})`;
+        }
+    }
+
     class TextEditorElement extends EditorElement {
 
         code = [];
@@ -294,7 +452,7 @@
             this.style.setProperty('--editor-name', `'math'`);
             this.style.setProperty('--editor-color', '#FFD600');
             this.style.setProperty('--editor-name-color', 'black');
-            this.style.setProperty('--editor-background-color', '#FFFBE9');
+            this.style.setProperty('--editor-background-color', 'rgba(255, 214, 0, 0.1)');
 
             this.styleEl = document.createElement('style');
             this.styleEl.textContent = `
@@ -447,14 +605,14 @@
                 } else if (e.key === "Shift") {
 
                 } else if (e.key === "Alt") {
-                    this.insertSlot();
-                    const focuser = this.moveCaret(1);
-                    this.codeEl.innerHTML = '';
-                    this.codeEl.append(...this.displayHTML());
-                    if (focuser) {
-                        this.blur();
-                        focuser.focus(this, 1, e.shiftKey);
-                    }
+                    // this.insertSlot();
+                    // const focuser = this.moveCaret(1);
+                    // this.codeEl.innerHTML = '';
+                    // this.codeEl.append(...this.displayHTML());
+                    // if (focuser) {
+                    //     this.blur();
+                    //     focuser.focus(this, 1, e.shiftKey);
+                    // }
                 } else if (e.key === "Control") {
                    
 
@@ -489,20 +647,6 @@
                     this.moveCaretDown(e.shiftKey);
                     this.codeEl.innerHTML = '';
                     this.codeEl.append(...this.displayHTML());
-                } else if (e.key === '+') {
-                    // TODO: flatten nested +  ?
-                    const pre = this.code.slice(0, this.caret);
-                    const post = this.code.slice(this.caret, this.code.length);
-                    const focuser = new JoinerElement({ parentEditor: this, leftCode: pre, rightCode: post });
-                    this.code = [focuser];
-                    this.codeEl.innerHTML = '';
-                    this.codeEl.append(...this.displayHTML());
-                    this.blur();
-                    focuser.focus();
-
-                } else if (e.key === '-') {
-                    // elevate left and right (non commutative)
-
                 } else if (e.key === '/') {
                     // elevate left and right (non commutative)
                     const pre = this.code.slice(0, this.caret);
@@ -513,18 +657,27 @@
                     this.codeEl.append(...this.displayHTML());
                     this.blur();
                     focuser.focus();
-
-                } else if (e.key === '*') {
-
                 } else if (e.key === '^') {
                     // elevate left and right (non commutative)
+                    this.code.splice(this.caret, 0, new JoinerExpElement({ parentEditor: this }));
+                    const focuser = this.moveCaret(1);
+                    this.codeEl.innerHTML = '';
+                    this.codeEl.append(...this.displayHTML());
+                    if (focuser) {
+                        this.blur();
+                        focuser.focus(this, 1, e.shiftKey);
+                    }
 
-                } else if (e.key === '=') {
-
-                } else if (e.key === '(') {
-                    //
-
-                } else if (e.key === ')') {
+                } else if (e.key === '√') {
+                    // elevate right
+                    this.code.splice(this.caret, 0, new JoinerRadicalElement({ parentEditor: this }));
+                    const focuser = this.moveCaret(1);
+                    this.codeEl.innerHTML = '';
+                    this.codeEl.append(...this.displayHTML());
+                    if (focuser) {
+                        this.blur();
+                        focuser.focus(this, 1, e.shiftKey);
+                    }
 
                 } else {
                     if (e.ctrlKey || e.metaKey) return;
@@ -678,23 +831,16 @@
         getOutput() {
             let output = '';
 
-            // hack to add different functionality to nested editor
-            const plusIndex = this.code.find((el) => el === '+');
-            if (plusIndex) {
-                const plusArg1 = this.code.slice(0, plusIndex+1).join('');
-                const plusArg2 = this.code.slice(plusIndex+2, this.code.length).join('');
-                output = `plus(${plusArg1}, ${plusArg2})`;
-            } else {
-                for (const [slotOrChar, i] of withIndex(this.code)) {
-                    if (typeof slotOrChar === 'string') {
-                        const char = slotOrChar;
-                        output += char;
-                    } else {
-                        const slot = slotOrChar;
-                        output += slot.getOutput();
-                    }
+            for (const [slotOrChar, i] of withIndex(this.code)) {
+                if (typeof slotOrChar === 'string') {
+                    const char = slotOrChar;
+                    output += char;
+                } else {
+                    const slot = slotOrChar;
+                    output += slot.getOutput();
                 }
             }
+
             return output;
         }
 
@@ -739,10 +885,12 @@
     customElements.define('polytope-editor', EditorElement);
     customElements.define('joiner-editor', JoinerElement);
     customElements.define('div-joiner-editor', DivJoinerElement);
+    customElements.define('exp-joiner-editor', JoinerExpElement);
+    customElements.define('radical-joiner-editor', JoinerRadicalElement);
 
     document.getElementById('outputgetter').addEventListener('click', () => {
         const out = document.querySelector('text-editor').getOutput();
-        console.log(out);
+        document.getElementById('output').textContent = out;
     })
 </script>
 

@@ -1,0 +1,90 @@
+<div id="1">1</div>
+<div id="2">2</div>
+<div id="3">3</div>
+
+<script>
+    const el1 = document.getElementById('1');
+    const el2 = document.getElementById('2');
+    const el3 = document.getElementById('3');
+
+    let map = new Map();
+    map.set(el1, {
+        position: [100, 200]
+    });
+    map.set(el2, {
+        position: [280, 100]
+    });
+    map.set(el3, {
+        position: [200, 200]
+    });
+
+    document.addEventListener('mousedown', e => {
+        map.set(el2, {
+            position: [e.offsetX, e.offsetY]
+        });
+    })
+
+    function move() {
+        const newMap = new Map();
+
+        for (const [el, props] of map) {
+            let dir = [0,0];
+            for (const [otherEl, otherProps] of map) {
+                if (el !== otherEl) {
+                    const distance = dist(props.position, otherProps.position) / 300;
+
+                    const attraction = 8 * (distance - 0.5)**3; // https://www.desmos.com/calculator/r9vpd9whce
+                    dir = add(dir, mul(attraction/2, sub(otherProps.position, props.position)));
+                }
+            }
+            newMap.set(el, {
+                position: add(props.position, dir)
+            });
+        }
+        map = newMap;
+    }
+    move();
+
+    function step() {
+        move();
+        setTransforms();
+        requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+
+    function int([a,b]) {
+        return [a|0,b|0];
+    }
+    function dist([a,b],[c,d]) {
+        return Math.sqrt((a-c)**2 + (b-d)**2);
+    }
+    function mul(l, [a,b]) {
+        return [a*l, b*l];
+    }
+    function add([a,b],[c,d]) {
+        return [a+c, b+d];
+    }
+    function sub([a,b],[c,d]) {
+        return [a-c, b-d];
+    }
+    function lerp([a,b],[c,d], l) {
+        return [a*(1-l) + (c*l), b*(1-l) + (d*l)];
+    }
+
+    function setTransforms() {
+        for (const [el, props] of map) {
+            el.style.transform = `translate(${props.position[0]}px, ${props.position[1]}px)`;
+        }
+    }
+    setTransforms();
+</script>
+
+<style>
+    div {
+        color: white;
+        background: blue;
+        position: absolute;
+        top:0;
+        left:0;
+    }
+</style>
