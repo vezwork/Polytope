@@ -1,0 +1,120 @@
+<!--
+    next steps:
+    - create an editor "state"
+    - create a map "dom" -> "state"
+    - create a map "state" -> "dom"
+    - make the selection / caret not suck e.g. https://jsfiddle.net/zserge/gkbjv47n/
+-->
+<script>
+    window.customElements.define('dog-dog', class extends HTMLElement {
+        constructor() {
+            super();
+
+            this.addEventListener("click", () => {
+                // state
+                const score = parseInt(this.getAttribute("score")) || 0;
+                this.setAttribute("score", score + 1);
+
+                // display
+                this.innerHTML = score;
+            });
+        }
+
+        connectedCallback() {
+            // state
+            const score = parseInt(this.getAttribute("score")) || 0;
+            this.setAttribute("score", score);
+            this.style.background = 'red';
+
+            // display
+            this.innerHTML = score;
+        }
+    });
+</script>
+
+<div id="editor-container" contenteditable spellcheck="false">
+    a
+    <dog-dog></dog-dog>
+
+    <h1>hello</h1>
+    b
+</div>
+
+
+<script>
+    // const c = document.getElementById('c');
+    // const ctx = c.getContext('2d');
+    // ctx.fillRect(10,10,10,10);
+
+    // Select the node that will be observed for mutations
+    const targetNode = document.getElementById('editor-container');
+
+    // Options for the observer (which mutations to observe)
+    const config = {
+        attributes: true,
+        childList: true,
+        subtree: true,
+        characterData: true,
+    };
+
+    // Create an observer instance linked to the callback function
+    const observer = new MutationObserver((mutationsList, observer) => {
+        for (const mutation of mutationsList) {
+            if (mutation.type === 'childList') {
+                console.log('A child node has been added or removed.');
+            }
+            else if (mutation.type === 'attributes') {
+                console.log('The ' + mutation.attributeName + ' attribute was modified.');
+            }
+            else {
+                console.log('other mutation')
+            }
+            setCaret()
+        }
+    });
+
+    // Start observing the target node for configured mutations
+    observer.observe(targetNode, config);
+
+    // Later, you can stop observing
+    //observer.disconnect();
+
+    const caret = () => {
+    const range = window.getSelection().getRangeAt(0);
+    const prefix = range.cloneRange();
+    prefix.selectNodeContents(el);
+    prefix.setEnd(range.endContainer, range.endOffset);
+    return prefix.toString().length;
+  };
+
+  const setCaret = (pos, parent = el) => {
+    for (const node of parent.childNodes) {
+      if (node.nodeType == Node.TEXT_NODE) {
+        if (node.length >= pos) {
+          const range = document.createRange();
+          const sel = window.getSelection();
+          range.setStart(node, pos);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+          return -1;
+        } else {
+          pos = pos - node.length;
+        }
+      } else {
+        pos = setCaret(pos, node);
+        if (pos < 0) {
+          return pos;
+        }
+      }
+    }
+    return pos;
+  };
+</script>
+
+<style>
+    #editor-container {
+        border: 1px solid black;
+        height: 100px;
+    }
+</style>

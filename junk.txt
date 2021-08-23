@@ -1,0 +1,23 @@
+const getBracePairs = (string) => {
+    const openBracesToCloseBraces = {};
+    const closeBracesToOpenBraces = {};
+    let openBraceIndexStack = [];
+    for (let i = 0; i < string.length; i++) {
+        const char = string[i];
+
+        if (char === '(') {
+            openBraceIndexStack.push(i);
+        }
+        if (char === ')'){
+            const openBranceIndex = openBraceIndexStack.pop();
+            if (openBranceIndex) {
+                result[openBranceIndex] = i;
+                result[i] = openBranceIndex;
+            }
+        }
+    }
+    return {
+        openBracesToCloseBraces,
+        closeBracesToOpenBraces
+    };
+}

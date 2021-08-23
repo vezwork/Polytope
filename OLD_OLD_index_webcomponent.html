@@ -1,0 +1,578 @@
+<!-- goal: generalize mathquill.com functionality-->
+
+<!-- implementation note: it would be great if slots are lightweight enough that they can be
+extensively composed. -->
+
+<!-- tangential idea: A web3 code sharing slot and a versioning slot e.g.
+
+<<CODESHARE (inputs:: package name) (outputs:: nothin (side effect))>>
+<<VERSIONER [history tree editor / tagger?]>>
+
+-->
+
+<!-- model idea comment: transformers can be implemented as slots with access to their slot outputs -->
+<!-- model idea comment: strings are a workaround to normal slots for simplicity of rendering -->
+<!-- model: nested things with state that compile to js (executable) e.g.
+
+<<HTML EDITOR>>
+
+<<TIMELINE EDITOR (outputs:: some sort of timeline?)>>
+<<VOICE RECORDER (outputs:: external sound file, promise for loading that file)>->
+<<HISTORY RECORDER (inputs:: code from slot) (outputs:: diffs array)>>
+
+<<MARKDOWN EDITOR (outputs:: a comment)>>
+
+function hello() {
+    const color = <<COLOR EDITOR (outputs:: rgba strings)>>
+
+    const graph = <<GRAPH EDITOR (outputs:: adjacency 2dArrays)>>
+
+    const isGood = <<CHECKBOX (outputs:: true or false)>>
+
+    const aVec3 = <<VECTOR EDITOR (outputs:: vector contructor)>>
+    const bVec3 = <<VECTOR EDITOR (outputs:: vector contructor)>>
+    const rVec3 = <<LINEAR ALG OPERATIONS bVec3 + aVec3 (outputs:: function to add two vectors)>>
+}
+
+<<MARKDOWN EDITOR (outputs:: a comment)>>
+
+-->
+
+<editor-el></editor-el>
+<br><button id="outputgetter">Get Output</button>
+
+<script type="module">
+    import { withIndex } from "./Iterable.js";
+
+    class ExampleElement extends HTMLElement {
+        constructor() {
+            // Always call super first in constructor
+            super();
+
+            // Create a shadow root
+            this.attachShadow({mode: 'open'});
+            this.shadowRoot.append(document.createTextNode('hello!'));
+            this.style.color = 'blue';
+        }
+    }
+    customElements.define('example-element', ExampleElement);
+
+    // question: how to represent the caret being "inside" a slot
+    // - let's think of a character as an example:
+    //   - characters do not have an "inside": the caret can only be before or after a character.
+    //   - If the start of the caret was before a character, and the end was after that character,
+    //     then that could be considered inside. BUT then deleting would intuitively delete that
+    //     entire character rather than the thing within it.
+    //   - Given that counterexample to the before/after idea, I think there needs to be a way to
+    //     recursively address a caret.
+    // - Should it be possible for the caret start to be inside a slot while the caret's end is
+    //   outside? YES, highting half a vector and half the equation it is in will not be possible.
+    // - Caret start and end addresses can both use the same recursive addressing scheme, just
+    //   with different addresses.
+    // - It should be possible to look at a caret address and not need to know the size of a
+    //   slot's "caret space" (the number of caret addresses within that slot, and the slots within
+    //   it) which the caret is inside in order to tell where the start / end address of that slot
+    //   is.
+    // - So, a proposal for the caret address scheme is: 10.7.0 meaning that, in the slot
+    //   at 10, there is a slot at 7, and in that slot the cursor is at 0. More meaningfully the
+    //   the slot at 10 is between 10 and 11, just like the character "a" in the string "ab" is in
+    //   between caret 0 and caret 1 (using traditional string caret addressing).
+    // - A caveat of the above addressing scheme is that it doesn't include the widths of
+    //   slots. Could this cause issues when highlighting? Well, the ordering of addresses is not a
+    //   problem: addressess are unambiguously ordered e.g. 10.7.0 > 10.5.99 < 11 < 100.13.69
+    // - Another caveat is that this may result in slots having to manage their own addressing. I
+    //   would like slots to be able to easy ignore addressing. Slot address widths would affect how
+    //   the left and right arrow behave: if a caret is at the end of a slot and the right arrow is
+    //   pressed, then the caret would move out of the slot e.g. 46.9 -> right arrow -> 47. Slots
+    //   should be able to prevent left/right arrow navigation out of the slot without setting a
+    //   silly width.
+    // - Implementation vs notation note: 44.69.7.0.1101 = [44, 69, 8, 0, 1101].
+    // - Should slots be allowed to define their own addressing scheme? 2D slots would need a
+    //   different addressing scheme.
+
+    // - Yes actually i think slots should handle their own addressing. But then how does copy&paste
+    //   work?
+    //
+
+    class Editor extends HTMLElement {
+
+        code = [' '];
+        isCaretOutside = false;
+        caret = 0;
+        minorCaret = 0;
+        isCaretInSlot = false;
+        parent = undefined;
+
+        constructor(parent) {
+            super();
+
+            this.parent = parent;
+
+            this.attachShadow({mode: 'open'});
+
+            this.styleEl = document.createElement('style');
+            this.styleEl.textContent = `
+                :host {
+                    border-bottom: 2px solid black;
+                    display: inline-block;
+                    margin: 2px 2px;
+                    user-select: none;
+                    border-radius: 4px 4px 0 0;
+                    background: white;
+                    padding: 0 2px;
+                    box-sizing: border-box;
+                    position: relative;
+                }
+                :host(:focus)::after {
+                    content: 'hello';
+                    font-size: 14px;
+                    padding: 1px 6px 2px 6px;
+                    background: black;
+                    color: white;
+                    position: absolute;
+                    bottom: -20px;
+                    left: -2px;
+                    border-radius: 0 0 4px 4px;
+                    font-family: monospace;
+                }
+                code {
+                    white-space: pre;
+                    width: inherit;
+                    height: inherit;
+                    display: inline-block;
+                }
+                :host(:focus), :host(:focus-visible) {
+                    border: 2px solid black;
+                    border-bottom: 2px solid black;
+                    color: black !important;
+                    outline: none;
+                }
+                :host(:not(:focus)), :host(:not(:focus-within)) {
+                    color: #aaa;
+                }
+
+                :host(:not(:focus)) code caret {
+                    display: none;
+                }
+
+                caret {
+                    position: relative;
+                    display: inline-block;
+                    height: 1rem;
+                    width: 0px;
+                }
+                caret::after {
+                    content: "";
+                    height: 1.2rem;
+                    left: -1px;
+                    width: 2px;
+                    position: absolute;
+                    background: black;
+                    animation: blinker 1s linear infinite;
+                }
+                @keyframes blinker {
+                    0% { opacity: 1; }
+                    49% { opacity: 1; }
+                    50% { opacity: 0; }
+                    100% { opacity: 0; }
+                }
+            `;
+            this.codeEl = document.createElement('code');
+            this.shadowRoot.append(this.styleEl, this.codeEl);
+                // TODO
+                // map Δelement -> Δdom (may require context so things can be merged)
+
+                // handle caret movement with mouse
+                // handle selection
+                // handle selection with keyboard
+                // handle selection with mouse
+
+                // handle paste (map -dom -> -element)
+
+                if (!this.hasAttribute('tabindex')) {
+                // Choose one of the following lines (but not both):
+                this.setAttribute('tabindex', 0);
+            }
+            this.addEventListener('focus', (e) => {
+                e.stopPropagation();
+                this.isCaretInSlot = false;
+                this.isCaretOutside = false;
+            });
+            this.addEventListener('blur', (e) => {
+                e.stopPropagation();
+                this.isCaretOutside = true;
+            });
+            this.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+
+                const targetEl = e.path[0];
+                if (targetEl.getAttribute('i')) {
+                    const chari = parseInt(targetEl.getAttribute('i'));
+                    this.caret = chari;
+                    this.minorCaret = this.caret;
+                }
+                this.codeEl.innerHTML = '';
+                this.codeEl.append(...this.displayHTML());
+                setTimeout(() => this.focus());
+            });
+            this.addEventListener('mousemove', (e) => {
+                e.stopPropagation();
+
+                if (!(this.isCaretOutside)) {
+                    const targetEl = e.path[0];
+                    if (targetEl.getAttribute('i') && e.buttons === 1) {
+                        let chari = parseInt(targetEl.getAttribute('i'));
+
+                        const rect = targetEl.getBoundingClientRect();
+                        const x = e.clientX - rect.left; //x position within the element.
+                        if (x >= rect.width/2) {
+                            chari = chari + 1;
+                        }
+
+
+                        if (chari !== this.caret) {
+                            this.caret = chari;
+
+                            this.codeEl.innerHTML = '';
+                            this.codeEl.append(...this.displayHTML());
+                        }
+                    }
+                }
+            });
+            document.addEventListener('copy', (e) => {
+                if (document.activeElement === this && this.minorCaret !== this.caret) {
+                    let start;
+                    let end;
+                    let output = '';
+                    if (this.minorCaret > this.caret) {
+                        start = this.caret;
+                        end = this.minorCaret;
+                    } else {
+                        end = this.caret;
+                        start = this.minorCaret;
+                    }
+                    for (let i = start; i < this.code.length && i < end; i++) {
+                        const slotOrChar = this.code[i];
+                        if (typeof slotOrChar === 'string') {
+                            const char = slotOrChar;
+                            output += char;
+                        } else {
+                            const slot = slotOrChar;
+                            output += slot.getOutput();
+                        }
+                    }
+
+                    e.clipboardData.setData('text/plain', output);
+                    e.preventDefault();
+                    console.log('copied!', output)
+                }
+            });
+            document.addEventListener('paste', (e) => {
+                let paste = (event.clipboardData || window.clipboardData).getData('text');
+                console.log(paste);
+                if (paste && document.activeElement === this) {
+                    this.insertText(paste);
+                    const focuser = this.moveCaret(paste.length);
+                    this.codeEl.innerHTML = '';
+                    this.codeEl.append(...this.displayHTML());
+                }
+            });
+            this.addEventListener('keydown', (e) => {
+                e.stopPropagation();
+                if (e.key === "Control") {
+                    // TODO: modifier is down
+                    return;
+                }
+                if (this.isCaretInSlot) {
+
+                }
+                else if (e.key === "Backspace") {
+                    // note: backspace in an empty editor should exit the editor and delete it
+                    this.backspace();
+                    const focuser = this.moveCaret(-1);
+                    this.codeEl.innerHTML = '';
+                    this.codeEl.append(...this.displayHTML());
+                    if (focuser) {
+                        this.blur();
+                        focuser.focus(this, 0, e.shiftKey);
+                    }
+                } else if (e.key === "Enter") {
+                    // note: disabling enter for now until I can do it right
+                    // this.insertText("\n");
+                    // const focuser = this.moveCaret(1);
+                    // this.codeEl.innerHTML = '';
+                    // this.codeEl.append(...this.displayHTML());
+                    // note: shouldn't happen in practice
+                    //if (focuser) {
+                    //    this.blur();
+                    //    focuser.focus();
+                    //}
+                } else if (e.key === "Meta") {
+
+                } else if (e.key === "Shift") {
+
+                } else if (e.key === "Alt") {
+                    this.insertSlot();
+                    const focuser = this.moveCaret(1);
+                    this.codeEl.innerHTML = '';
+                    this.codeEl.append(...this.displayHTML());
+                    if (focuser) {
+                        this.blur();
+                        focuser.focus(this, 1, e.shiftKey);
+                    }
+                } else if (e.key === "Control") {
+
+                } else if (e.key === "Tab") {
+                    this.insertText("\t");
+                    const focuser = this.moveCaret(1);
+                    this.codeEl.innerHTML = '';
+                    this.codeEl.append(...this.displayHTML());
+                    e.preventDefault();
+
+                } else if (e.key === 'ArrowLeft') {
+                    const focuser = this.moveCaret(-1, e.shiftKey);
+                    this.codeEl.innerHTML = '';
+                    this.codeEl.append(...this.displayHTML());
+                    if (focuser) {
+                        this.blur();
+                        focuser.focus(this, 0, e.shiftKey);
+                    }
+                } else if (e.key === 'ArrowRight') {
+                    const focuser =  this.moveCaret(1, e.shiftKey);
+                    this.codeEl.innerHTML = '';
+                    this.codeEl.append(...this.displayHTML());
+                    if (focuser) {
+                        this.blur();
+                        focuser.focus(this, 1, e.shiftKey);
+                    }
+                } else if (e.key === 'ArrowUp') {
+                    this.moveCaretUp(e.shiftKey);
+                    this.codeEl.innerHTML = '';
+                    this.codeEl.append(...this.displayHTML());
+                } else if (e.key === 'ArrowDown') {
+                    this.moveCaretDown(e.shiftKey);
+                    this.codeEl.innerHTML = '';
+                    this.codeEl.append(...this.displayHTML());
+                } else {
+                    if (e.ctrlKey || e.metaKey) return;
+                    this.insertText(e.key);
+                    const focuser = this.moveCaret(1);
+                    this.codeEl.innerHTML = '';
+                    this.codeEl.append(...this.displayHTML());
+                    // note: shouldn't happen in practice
+                    //if (focuser) {
+                    //    this.blur();
+                    //    focuser.focus();
+                    //}
+                }
+            });
+            this.codeEl.innerHTML = '';
+            this.codeEl.append(...this.displayHTML());
+        }
+
+        connectedCallback() {
+        }
+
+        insertText(text) {
+            const insert = text.split('');
+            this.code.splice(this.caret, 0, ...insert);
+        }
+
+        insertSlot() {
+            this.code.splice(this.caret, 0, new Editor(this));
+        }
+
+        backspace() {
+            this.code.splice(this.caret-1, 1);
+        }
+
+        moveCaret(change, isSelecting) {
+            if (this.parent) {
+                if (!isSelecting) {
+                    if (this.caret + change > this.code.length || this.caret + change < 0) {
+                        return this.parent;
+                    }
+                }
+            }
+
+            const newCaret = Math.min(Math.max(0, this.caret + change), this.code.length);
+
+            if (isSelecting) {
+                this.caret = newCaret;
+            } else {
+                if (change < 0 && this.code[newCaret] && typeof this.code[newCaret] !== 'string') {
+                    this.caret = newCaret;
+                    this.minorCaret = this.caret;
+                    this.isCaretInSlot = true;
+                    return this.code[newCaret];
+                } else if (change > 0 && this.code[newCaret-1] && typeof this.code[newCaret-1] !== 'string') {
+                    this.caret = newCaret-1;
+                    this.minorCaret = this.caret;
+                    this.isCaretInSlot = true;
+                    return this.code[newCaret-1];
+                } else {
+                    this.caret = newCaret;
+                    this.minorCaret = this.caret;
+                }
+            }
+        }
+
+        lineIndicesFromCodeIndex(index) {
+            let start = 0;
+            let end = this.code.length;
+            for (let i = index-1; i >= 0; i--) {
+                const slotOrChar = this.code[i];
+                if (typeof slotOrChar === 'string') {
+                    const char = slotOrChar;
+
+                    if (char === '\n') {
+                        start = i+1;
+                        break;
+                    }
+                }
+            }
+            for (let i = index; i <= this.code.length; i++) {
+                const slotOrChar = this.code[i];
+                if (typeof slotOrChar === 'string') {
+                    const char = slotOrChar;
+
+                    if (char === '\n') {
+                        end = i;
+                        break;
+                    }
+                }
+            }
+            return [start, end];
+        }
+
+        moveCaretUp(isSelecting) {
+            const [lineStart, lineEnd] = this.lineIndicesFromCodeIndex(this.caret);
+            if (lineStart === 0) {
+                this.caret = 0;
+                if (!isSelecting) this.minorCaret = this.caret;
+                return;
+            }
+            const caretOffsetLineStart = this.caret - lineStart;
+            const [prevLineStart, prevLineEnd] = this.lineIndicesFromCodeIndex(lineStart-1);
+            this.caret = Math.min(prevLineStart + caretOffsetLineStart, prevLineEnd);
+            if (!isSelecting) this.minorCaret = this.caret;
+        }
+
+        moveCaretDown(isSelecting) {
+            const [lineStart, lineEnd] = this.lineIndicesFromCodeIndex(this.caret);
+            if (lineEnd === this.code.length) {
+                this.caret = his.code.length;
+                if (!isSelecting) this.minorCaret = this.caret;
+                return;
+            }
+            const caretOffsetLineStart = this.caret - lineStart;
+            const [nextLineStart, nextLineEnd] = this.lineIndicesFromCodeIndex(lineEnd+1);
+            this.caret = Math.min(nextLineStart + caretOffsetLineStart, nextLineEnd);
+            if (!isSelecting) this.minorCaret = this.caret;
+        }
+
+        displayHTML() {
+            let results = [];
+
+            for (const [slotOrChar, i] of withIndex(this.code)) {
+                if (i === this.caret) {
+                    results.push(document.createElement('caret'));
+                }
+                if (typeof slotOrChar === 'string') {
+                    const char = slotOrChar;
+                    const charEl = document.createElement('span');
+                    charEl.textContent = char;
+                    charEl.setAttribute('i', i);
+                    if ((i < this.caret && i >= this.minorCaret) || (i >= this.caret && i < this.minorCaret)) {
+                        charEl.style.background = 'black';
+                        charEl.style.color = 'white';
+                    }
+                    results.push(charEl);
+
+                } else {
+                    const slot = slotOrChar;
+                    results.push(slot);
+                }
+            }
+            if (this.caret === this.code.length) {
+                results.push(document.createElement('caret'));
+            }
+
+            return results;
+        }
+
+        getOutput() {
+            let output = '';
+
+            // hack to add different functionality to nested editor
+            const plusIndex = this.code.find((el) => el === '+');
+            if (plusIndex) {
+                const plusArg1 = this.code.slice(0, plusIndex+1).join('');
+                const plusArg2 = this.code.slice(plusIndex+2, this.code.length).join('');
+                output = `plus(${plusArg1}, ${plusArg2})`;
+            } else {
+                for (const [slotOrChar, i] of withIndex(this.code)) {
+                    if (typeof slotOrChar === 'string') {
+                        const char = slotOrChar;
+                        output += char;
+                    } else {
+                        const slot = slotOrChar;
+                        output += slot.getOutput();
+                    }
+                }
+            }
+            return output;
+        }
+
+        focus(fromEl, position, isSelecting) {
+            super.focus();
+
+            this.isCaretOutside = false;
+            this.isCaretInSlot = false;
+
+            if (fromEl !== undefined && position !== undefined) {
+                for (const [slotOrChar, i] of withIndex(this.code)) {
+                    if (slotOrChar === fromEl) { // case: exiting from slot
+                        this.caret = i + position;
+                        if (!isSelecting) this.minorCaret = this.caret;
+                        this.codeEl.innerHTML = '';
+                        this.codeEl.append(...this.displayHTML());
+                        return;
+                    }
+                }
+                if (position === 1) { // case: entering from a parent on the left
+                    this.caret = 0;
+                    this.minorCaret = this.caret;
+                }
+                if (position === 0) { // case: entering from a parent on the right
+                    this.caret = this.code.length;
+                    this.minorCaret = this.caret;
+                }
+                this.codeEl.innerHTML = '';
+                this.codeEl.append(...this.displayHTML());
+            }
+        }
+
+        blur() {
+            super.blur();
+            this.isCaretOutside = true;
+
+            this.minorCaret = this.caret;
+
+            this.codeEl.innerHTML = '';
+            this.codeEl.append(...this.displayHTML());
+        }
+    }
+    customElements.define('editor-el', Editor);
+
+    document.getElementById('outputgetter').addEventListener('click', () => {
+        const out = document.querySelector('editor-el').getOutput();
+        console.log(out);
+    })
+</script>
+
+<style>
+    body {
+        font-size: 22px;
+    }
+</style>

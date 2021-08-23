@@ -105,3 +105,47 @@ function hello() {
             // focused
             // highlighted - highlighted by the parent editor.
 </script>
+
+<!--
+    Aug 17 2020
+    What I need right now:
+
+    1. A way to save and load editor states
+    2. A way to define custom functionality of an operator e.g. `syntax a + b => [a[0]+b[0], a[1]+b[1]];`
+
+    so that I can actually write something (I want to write the graph editor) using polytope.
+
+    Potential solutions:
+    1.a. delimitter-based serialization e.g. `a^(Math(2))` serializes to a /* polytope:math-exp:start */ ** 2 /* polytope:math-exp:end */`
+    1.b. analytic serialization e.g. I tell polytope that `a^2` should have the structure `a^(Math(2))` when it is loaded.
+    2.a. hardcode a + b as `plus(a, b)` for now and let the user define the plus function.
+    2.b. implement a type hierarchy so that num + num => one thing while vec + vec goes to another.
+
+    Problems with potential solutions:
+    1.a.i. gross output javascript.
+    1.a.ii. polytope would not support analytic / automatic editor-ization. All editors must be manually inserted by the user.
+    1.b.i. requires parsing of javascript.
+    1.b.ii. may not succeed to parse partial/broken javascript.
+    1.b.iii. requires some way to specify which part of the javascript AST should be converted to polytope structures and how.
+    2.a.i. User has to do everything (including boilerplate for all the math functions).
+    2.a.ii. polytope doesn't do any heavy lifting when it comes to operator overloading. There is useful nested editor info that polytope could take advantage of for typing.
+    2.b.i. type hierarchy design is unclear and requires research.
+    2.b.ii. increases complexity.
+    2.b.iii. strays away from the current core ideas of polytope.
+    2.b.iv. may requires substantial time to implement.
+
+    Based off this analysis, 1.a. and 2.a. should serve my needs with low short-term downside. It
+    would be cool to revisit these problems in the future.
+
+    Before I leave these ideas and move onto implementation, it would be very cool to implement
+    an editor / syntax around 2.b... something like (pattern matching for math +):
+
+    ```polytope
+        editor "+" math((vec(a) + vec(b)) => vecAdd(a, b);
+        editor "+" math(math(a) + math(b)) => a + b;
+    ```
+
+    explanation: "+" is the key you press on your keyboard to construct the editor;
+        math(math(a) + math(b)) represents a math editor containing an addition of two math editors and
+        what the output should be.
+-->
