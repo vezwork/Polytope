@@ -1,7 +1,17 @@
 
+<div style="margin-bottom: 5px;">
+    <button id="fileOpener">📂 Open file</button>
+    <button id="fileSaver">💾 Save file</button>
+</div>
+<div id="editor">
+    <text-editor></text-editor>
+</div>
+<button id="runCode">▶️ Run code</button>
+<strong>Output:</strong>
+<pre id="script-output"></pre>
 
-<text-editor></text-editor>
-<br><br>
+<br><br><br>
+
 <div style="border: 1px solid black;">
     <button id="outputgetter">Get javascript code</button>
     <pre id="output"></pre>
@@ -17,39 +27,33 @@
     <div id="source"></div>
 </div>
 
-<br>
-<div style="border: 1px solid black;">
-    <button id="fileOpener">Open file</button>
-    <button id="fileSaver">Save file</button>
-    <div id="fileResult"><text-editor></text-editor></div>
-</div>
-
 <script type="module">
     import { MathEditorElement, TextEditorElement } from "./editor.js";
     import { stringToEditor } from "./string_to_editor.js";
 
+    //https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API
     // store a reference to our file handle
     let fileHandle;
 
     document.getElementById('fileOpener').addEventListener('click', () => getFile());
     document.getElementById('fileSaver').addEventListener('click', () =>
-        writeFile(fileHandle, document.querySelector('#fileResult text-editor').getOutput())
+        writeFile(fileHandle, document.querySelector('#editor text-editor').getOutput())
     );
     async function getFile() {
-        [fileHandle] = await window.showOpenFilePicker();
+        [fileHandle] = await showOpenFilePicker();
 
         if (fileHandle.kind === 'file') {
             const fileData = await fileHandle.getFile();
             const contents = await fileData.text();
-            document.getElementById('fileResult').innerHTML = '';
-            document.getElementById('fileResult').append(new TextEditorElement({
+            document.getElementById('editor').innerHTML = '';
+            document.getElementById('editor').append(new TextEditorElement({
                 code: stringToEditor(contents).output
             }));
         } else if (fileHandle.kind === 'directory') {
         }
     }
     async function writeFile(fileHandle, contents) {
-        if (!fileHandle) [fileHandle] = await window.showSaveFilePicker();
+        if (!fileHandle) [fileHandle] = await showSaveFilePicker();
         const writable = await fileHandle.createWritable();
         await writable.write(contents);
         await writable.close();
@@ -72,6 +76,14 @@
         const out = document.getElementById('output').textContent;
         document.getElementById('runout').innerHTML = eval(out);
     })
+    document.getElementById('runCode').addEventListener('click', () => {
+        const out = document.querySelector('text-editor').getOutput();
+        eval(out);
+    })
+
+    function output(value) {
+        document.getElementById('script-output').innerText = JSON.stringify(value);
+    };
 </script>
 
 <style>

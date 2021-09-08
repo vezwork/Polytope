@@ -24,6 +24,14 @@ export const UnaryJoinerElement = (outputFuncName, createElements) => {
             });
             this.addEventListener('mousemove', (e) => e.stopPropagation());
             //this.addEventListener('keydown', (e) => e.stopPropagation());
+            this.addEventListener('childEditorUpdate', (e) => {
+                this.parentEditor?.dispatchEvent(
+                    new CustomEvent(
+                        'childEditorUpdate',
+                        { detail: this.getOutput() }
+                    )
+                );
+            })
         }
 
         focus(fromEl, position, isSelecting) {
@@ -89,6 +97,14 @@ export const BinaryJoinerElement = (outputFuncName, createElements) => {
                 this.focus();
             });
             //this.addEventListener('keydown', (e) => e.stopPropagation());
+            this.addEventListener('childEditorUpdate', (e) => {
+                this.parentEditor?.dispatchEvent(
+                    new CustomEvent(
+                        'childEditorUpdate',
+                        { detail: this.getOutput() }
+                    )
+                );
+            })
         }
 
         focus(fromEl, position, isSelecting) {
@@ -165,6 +181,47 @@ export const DivJoinerElement = BinaryJoinerElement(
     },
 );
 
+export const Vec2JoinerElement = BinaryJoinerElement(
+    'vec2',
+    (leftEditor, rightEditor) => {
+        const styleEl = document.createElement('style');
+        styleEl.textContent = `
+            :host {
+                display: inline-flex;
+                vertical-align: middle;
+                flex-direction: column;
+                align-items: stretch;
+                position: relative;
+                padding: 2px;
+                gap: 2px;
+                border-left: 2px solid currentColor;
+                border-right: 2px solid currentColor;
+            }
+            :host::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+                height: calc(100% - 4px);
+                width: 5px;
+                border-top: 2px solid currentColor;
+                border-bottom: 2px solid currentColor;
+              }
+              :host::after {
+                content: "";
+                position: absolute;
+                top: 0;
+                right: 0;
+                height: calc(100% - 4px);
+                width: 5px;
+                border-top: 2px solid currentColor;
+                border-bottom: 2px solid currentColor;
+              }
+        `;
+        return [styleEl, leftEditor, rightEditor];
+    },
+);
+
 export const BinarySymbolJoinerElement = (outputFuncName, symbol) => BinaryJoinerElement(
     outputFuncName,
     (leftEditor, rightEditor) => {
@@ -174,6 +231,8 @@ export const BinarySymbolJoinerElement = (outputFuncName, symbol) => BinaryJoine
     },
 );
 export const PlusJoinerElement = BinarySymbolJoinerElement('plus', '+');
+export const MulJoinerElement = BinarySymbolJoinerElement('mul', '·');
+export const SubJoinerElement = BinarySymbolJoinerElement('sub', '-');
 
 export const ExpJoinerElement = BinaryJoinerElement(
     'exp',

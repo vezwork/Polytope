@@ -1,3 +1,18 @@
-const a = plus(exp(2, 2), sqrt(22));
+class StateMachine {
+constructor({ nodes, edges }) {
+    this.nodes = nodes;
+    this.edges = edges;
+    this.stateIndex = 0;
+}
 
-ok nice
+    next() {
+        const currentEdges = this.edges[this.stateIndex];
+        const randomEdge = Math.floor(Math.random() * currentEdges.length);
+        this.stateIndex = currentEdges[randomEdge];
+        return this.nodes[this.stateIndex];
+    }
+}
+
+const stateMachine = new StateMachine();
+
+setInterval(() => output(stateMachine.next()), 1000);

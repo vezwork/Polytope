@@ -1,5 +1,4 @@
-import { TextEditorElement, MathEditorElement } from "./editor.js";
-import { PlusJoinerElement, DivJoinerElement, ExpJoinerElement, RadicalJoinerElement } from "./sub_math_editors.js";
+import { PlusJoinerElement, DivJoinerElement, ExpJoinerElement, RadicalJoinerElement, MulJoinerElement, SubJoinerElement } from "./sub_math_editors.js";
 
 export const stringToEditor = (string) => {
     let result = [];
@@ -57,6 +56,36 @@ export const stringToEditor = (string) => {
                 const commaIndex = output.indexOf(',');
                 if (commaIndex !== -1) {
                     const joiner = new ExpJoinerElement({
+                        leftCode: output.slice(0, commaIndex),
+                        rightCode: output.slice(commaIndex+2)
+                    })
+                    result = [...result, joiner];
+                } else {
+                    result = [...result, ...output];
+                }
+            }
+            else if (prefix3 === 'mul') {
+                result.length -= 3;
+                const { consume, output } = stringToEditor(string.substring(i+1));
+                i += consume + 1;
+                const commaIndex = output.indexOf(',');
+                if (commaIndex !== -1) {
+                    const joiner = new MulJoinerElement({
+                        leftCode: output.slice(0, commaIndex),
+                        rightCode: output.slice(commaIndex+2)
+                    })
+                    result = [...result, joiner];
+                } else {
+                    result = [...result, ...output];
+                }
+            }
+            else if (prefix3 === 'sub') {
+                result.length -= 3;
+                const { consume, output } = stringToEditor(string.substring(i+1));
+                i += consume + 1;
+                const commaIndex = output.indexOf(',');
+                if (commaIndex !== -1) {
+                    const joiner = new SubJoinerElement({
                         leftCode: output.slice(0, commaIndex),
                         rightCode: output.slice(commaIndex+2)
                     })
