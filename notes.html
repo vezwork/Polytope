@@ -82,7 +82,7 @@ function hello() {
             super();
 
             // Create a shadow root
-            this.attachShadow({mode: 'open'});
+            this.attachShadow({ mode: 'open' });
             this.shadowRoot.append(document.createTextNode('hello!'));
             this.style.color = 'blue';
         }
@@ -148,4 +148,11 @@ function hello() {
     explanation: "+" is the key you press on your keyboard to construct the editor;
         math(math(a) + math(b)) represents a math editor containing an addition of two math editors and
         what the output should be.
+-->
+
+
+<!--
+    Nov 5.
+    Should use AST subtree matching predicates instead of my primitive stringToEditorBuilder paren matching
+    and paren interior validating/parsing functions.
 -->
