@@ -80,3 +80,39 @@ export function cycleGraph(multiplicationTable) {
         edges
     }
 }
+
+export class Group {
+
+    identityElement;
+    elements = [];
+    mulTable = {};
+
+    constructor({ cayleeGraph, mulTable }) {
+        if (!Boolean(cayleeGraph) && !Boolean(mulTable)) {
+            throw 'Group constructor: expecting a cayleeGraph or multiplicationTable!'
+        }
+        if (Boolean(cayleeGraph) && !Boolean(mulTable)) {
+            this.mulTable = multiplicationTable(cayleeGraph, generatorPaths(cayleeGraph));
+        }
+        if (!Boolean(cayleeGraph) && Boolean(mulTable)) {
+            this.mulTable = mulTable;
+        }
+        this.elements = Object.keys(this.mulTable);
+        // This class assumes that the first element in the multiplication table is the identity
+        this.identityElement = this.elements[0];
+
+    }
+
+    action(elementA, elementB) {
+        return this.mulTable[elementA][elementB];
+    }
+
+    exponentiate(element, integer) {
+        if (integer === 0) return this.identityElement;
+        let currentElement = element;
+        for (let i = 1; i < integer; i++) {
+            currentElement = this.mulTable[currentElement][element];
+        }
+        return currentElement;
+    }
+}

@@ -1,6 +1,11 @@
 export const BidirectionalEditorPair = ({
     leftEditorFactory,
     rightEditorFactory,
+    leftEditorOutput = (editor) => editor.getOutput(),
+    leftToRightTransformer = (arg) => arg,
+    rightEditorOutput = (editor) => editor.getOutput(),
+    rightToLeftTransformer = (arg) => arg,
+    output = (leftEditor, rightEditor) => leftEditor.getOutput(),
     name = 'no-name' } = {}) => {
     class C extends HTMLElement {
         parentEditor = undefined;
@@ -32,22 +37,41 @@ export const BidirectionalEditorPair = ({
             });
             //this.addEventListener('keydown', (e) => e.stopPropagation());
             this.addEventListener('childEditorUpdate', (e) => {
-                const { out, editor } = e.detail;
-                if (editor === this.leftEditor) {
-                    const newRightEditor = rightEditorFactory(out, this);
-                    this.shadowRoot.replaceChild(newRightEditor, this.rightEditor);
-                    this.rightEditor = newRightEditor;
-                }
-                if (editor === this.rightEditor) {
-                    const newLeftEditor = leftEditorFactory(out, this);
-                    this.shadowRoot.replaceChild(newLeftEditor, this.leftEditor);
-                    this.leftEditor = newLeftEditor;
+                try {
+                    const { editor } = e.detail;
+                    if (editor === this.leftEditor) {
+                        const out = leftEditorOutput(editor);
+                        const newRightEditor = rightEditorFactory(leftToRightTransformer(out), this);
+                        this.shadowRoot.replaceChild(newRightEditor, this.rightEditor);
+                        this.rightEditor = newRightEditor;
+                    }
+                    if (editor === this.rightEditor) {
+                        const out = rightEditorOutput(editor);
+                        const newLeftEditor = leftEditorFactory(rightToLeftTransformer(out), this);
+                        this.shadowRoot.replaceChild(newLeftEditor, this.leftEditor);
+                        this.leftEditor = newLeftEditor;
 
+                    }
+                    this.parentEditor?.dispatchEvent(
+                        new CustomEvent(
+                            'childEditorUpdate',
+                            {
+                                detail: {
+                                    out: this.getOutput(),
+                                    editor: this,
+                                }
+                            }
+                        )
+                    );
+                    this.leftEditor.style.width = 400;
+                    this.rightEditor.style.width = 400;
+                    this.leftEditor.style.height = 400;
+                    this.rightEditor.style.height = 400;
+                    this.style.outline = 'none';
+                } catch (e) {
+                    this.style.outline = '2px solid red';
+                    console.error(e)
                 }
-                this.leftEditor.style.width = 400;
-                this.rightEditor.style.width = 400;
-                this.leftEditor.style.height = 400;
-                this.rightEditor.style.height = 400;
             })
         }
 
@@ -94,7 +118,7 @@ export const BidirectionalEditorPair = ({
         }
 
         getOutput() {
-            return this.leftEditor.getOutput();
+            return output(this.leftEditor, this.rightEditor);
         }
     }
 
@@ -104,9 +128,10 @@ export const BidirectionalEditorPair = ({
 
 export const UnidirectionalEditorPair = ({
     leftEditorFactory,
-    leftEditorOutput,
+    leftEditorOutput = (editor) => editor.getOutput(),
     transformer = (arg) => arg,
     rightEditorFactory,
+    output = (leftEditor, rightEditor) => leftEditor.getOutput(),
     name = 'no-name' } = {}) => {
     class C extends HTMLElement {
         parentEditor = undefined;
@@ -144,6 +169,18 @@ export const UnidirectionalEditorPair = ({
                     const newRightEditor = rightEditorFactory(transformer(out), this);
                     this.shadowRoot.replaceChild(newRightEditor, this.rightEditor);
                     this.rightEditor = newRightEditor;
+
+                    this.parentEditor?.dispatchEvent(
+                        new CustomEvent(
+                            'childEditorUpdate',
+                            {
+                                detail: {
+                                    out: this.getOutput(),
+                                    editor: this,
+                                }
+                            }
+                        )
+                    );
                 }
                 this.leftEditor.style.width = 400;
                 this.rightEditor.style.width = 400;
@@ -195,7 +232,7 @@ export const UnidirectionalEditorPair = ({
         }
 
         getOutput() {
-            return this.leftEditor.getOutput();
+            return output(this.leftEditor, this.rightEditor);
         }
     }
 
@@ -218,7 +255,7 @@ export const ConstructiveUnidirectionalEditor = ({
             this.rightEditor = document.createElement('span');
 
             this.attachShadow({ mode: 'open' });
-            const midEl = document.createElement('span');
+            const midEl = document.createElement('div');
             midEl.textContent = '→eval→';
             this.shadowRoot.append(this.leftEditor, midEl, this.rightEditor);
 
@@ -232,16 +269,19 @@ export const ConstructiveUnidirectionalEditor = ({
                 this.focus();
             });
             //this.addEventListener('keydown', (e) => e.stopPropagation());
-            const onUpdate = async () => {
-                const out = leftEditorOutput(this.leftEditor);
-                try {
-                    const rightEditor = await eval(`(async () => { ${out} })()`); // EVAL IS VERY BAD! IT DOES NOT PRESERVE INTERIOR EDITORS
-                    rightEditor.parentEditor = this;
-                    this.shadowRoot.replaceChild(rightEditor, this.rightEditor);
-                    this.rightEditor = rightEditor;
-                } catch (e) { }
+            const onUpdate = async (e) => {
+                const { editor } = e.detail;
+                if (editor === this.leftEditor) {
+                    const out = leftEditorOutput(this.leftEditor);
+                    try {
+                        const rightEditor = (await evalModule(out)).default;
+
+                        rightEditor.parentEditor = this;
+                        this.shadowRoot.replaceChild(rightEditor, this.rightEditor);
+                        this.rightEditor = rightEditor;
+                    } catch (er) { }
+                }
             };
-            onUpdate();
             this.addEventListener('childEditorUpdate', onUpdate)
         }
 
@@ -288,10 +328,21 @@ export const ConstructiveUnidirectionalEditor = ({
         }
 
         getOutput() {
-            return this.leftEditor.getOutput();
+            if (this.rightEditor?.getOutput) {
+                return this.rightEditor.getOutput();
+            } else {
+                return "";
+            }
         }
     }
 
     customElements.define(`constructive-unidirectional-${name}-editor-pair`, C);
     return C;
+}
+
+async function evalModule(js) {
+    const encodedJs = encodeURIComponent(js);
+    const dataUri = 'data:text/javascript;charset=utf-8,'
+        + encodedJs;
+    return import(dataUri);
 }

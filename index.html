@@ -3,32 +3,43 @@
     <button id="fileSaver">💾 Save file</button>
 </div>
 <div id="editor">
-    <text-editor></text-editor>
+    <my-text-editor></my-text-editor>
 </div>
+<br>
 <button id="runCode">▶️ Run code</button>
+<br>
 <strong>Output:</strong>
 <pre id="script-output"></pre>
 
 <br><br><br>
+<br><br><br>
+<br><br><br>
+<br><br><br>
+<br><br><br>
+<br><br><br>
+<br><br><br>
+<br><br><br>
+<br><br><br>
+<br><br><br>
+<br><br><br>
 
-<div style="border: 1px solid black;">
+
+<!-- <div style="border: 1px solid black;">
     <button id="outputgetter">Get javascript code</button>
     <pre id="output"></pre>
 </div>
-<br>
-<div style="border: 1px solid black;">
-    <button id="runner">Run javascript code</button>
-    <pre id="runout"></pre>
-</div>
-<br>
-<div style="border: 1px solid black;">
+<br> -->
+<!-- <div style="border: 1px solid black;">
     <button id="sourcegetter">Load editor from javascript code</button>
     <div id="source"></div>
-</div>
+</div> -->
 
+<a href="pres/index.html#slide-3">Back to presentation</a>
+
+<script type="module" src="groupTheoryEditor.js"></script>
+<script src="examples/math_ops.js"></script>
 <script type="module">
-    import { MathEditorElement, TextEditorElement } from "./editor.js";
-    import { builder } from "./stringToEditorBuilder.js";
+    import { MyEditorElement, builder } from "./custom.js";
 
     //https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API
     // store a reference to our file handle
@@ -36,7 +47,7 @@
 
     document.getElementById('fileOpener').addEventListener('click', () => getFile());
     document.getElementById('fileSaver').addEventListener('click', () =>
-        writeFile(fileHandle, document.querySelector('#editor text-editor').getOutput())
+        writeFile(fileHandle, document.querySelector('#editor my-text-editor').getOutput())
     );
     async function getFile() {
         [fileHandle] = await showOpenFilePicker();
@@ -45,7 +56,7 @@
             const fileData = await fileHandle.getFile();
             const contents = await fileData.text();
             document.getElementById('editor').innerHTML = '';
-            document.getElementById('editor').append(new TextEditorElement({
+            document.getElementById('editor').append(new MyEditorElement({
                 code: builder(contents).output
             }));
         } else if (fileHandle.kind === 'directory') {
@@ -58,35 +69,55 @@
         await writable.close();
     }
 
-    document.getElementById('outputgetter').addEventListener('click', () => {
-        const out = document.querySelector('text-editor').getOutput();
-        document.getElementById('output').textContent = out;
-    })
+    // document.getElementById('outputgetter').addEventListener('click', () => {
+    //     const out = document.querySelector('my-text-editor').getOutput();
+    //     document.getElementById('output').textContent = out;
+    // })
 
-    document.getElementById('sourcegetter').addEventListener('click', () => {
-        const out = document.getElementById('output').textContent;
-        document.getElementById('source').innerHTML = '';
-        document.getElementById('source').append(new TextEditorElement({
-            code: builder(out).output
-        }));
-    })
+    // document.getElementById('sourcegetter').addEventListener('click', () => {
+    //     const out = document.getElementById('output').textContent;
+    //     document.getElementById('source').innerHTML = '';
+    //     document.getElementById('source').append(new MyEditorElement({
+    //         code: builder(out).output
+    //     }));
+    // })
 
-    document.getElementById('runner').addEventListener('click', () => {
-        const out = document.getElementById('output').textContent;
-        document.getElementById('runout').innerHTML = eval(out);
-    })
     document.getElementById('runCode').addEventListener('click', () => {
-        const out = document.querySelector('text-editor').getOutput();
-        eval(`(async () => { ${out} })()`);
+        const out = document.querySelector('my-text-editor').getOutput();
+        // evalModule(out);
+        eval(out)
     })
 
     function output(value) {
         document.getElementById('script-output').innerText = JSON.stringify(value);
     };
+
+    // ref: https://2ality.com/2019/10/eval-via-import.html
+    // future improvement ref: https://github.com/tc39/proposal-shadowrealm
+    async function evalModule(js) {
+        const encodedJs = encodeURIComponent(js);
+        const dataUri = 'data:text/javascript;charset=utf-8,'
+            + encodedJs;
+        return import(dataUri);
+    }
 </script>
 
 <style>
-    body {
-        font-size: 26px;
+     @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;600&display=swap');
+body {
+    width:920px;
+        margin: 30px auto;
+        font-size: 25px;
+}
+
+my-text-editor {
+    width: 100%;
+    min-height: 780px;
+}
+
+    body, button {
+        
+        
+        font-family: 'Fira Code';
     }
 </style>

@@ -1,6 +1,69 @@
-import { MathEditorElement } from "./editor.js";
+import { TextEditorElement } from "./lib/editor.js";
 
-export const UnaryJoinerElement = (outputFuncName, createElements) => {
+export class MathEditorElement extends TextEditorElement {
+    constructor() {
+        super(...arguments);
+
+        this.style.setProperty('--editor-name', `'math'`);
+        this.style.setProperty('--editor-color', '#FFD600');
+        this.style.setProperty('--editor-name-color', 'black');
+        this.style.setProperty('--editor-background-color', '#fff7cf');
+        this.style.setProperty('--editor-outline-color', '#fff1a8');
+    }
+
+    keyHandler(e) {
+        if (e.key === '/') {
+            // elevate left and right (non commutative)
+            const pre = this.code.slice(0, this.caret);
+            const post = this.code.slice(this.caret, this.code.length);
+            const focuser = new DivJoinerElement({ parentEditor: this, leftCode: pre, rightCode: post });
+            this.code = [focuser];
+            return focuser;
+        } else if (e.key === '+') {
+            // elevate left and right
+            const pre = this.code.slice(0, this.caret);
+            const post = this.code.slice(this.caret, this.code.length);
+            const focuser = new PlusJoinerElement({ parentEditor: this, leftCode: pre, rightCode: post });
+            this.code = [focuser];
+            return focuser;
+        } else if (e.key === '*') {
+            // elevate left and right
+            const pre = this.code.slice(0, this.caret);
+            const post = this.code.slice(this.caret, this.code.length);
+            const focuser = new MulJoinerElement({ parentEditor: this, leftCode: pre, rightCode: post });
+            this.code = [focuser];
+            return focuser;
+        } else if (e.key === '-') {
+            // elevate left and right
+            const pre = this.code.slice(0, this.caret);
+            const post = this.code.slice(this.caret, this.code.length);
+            const focuser = new SubJoinerElement({ parentEditor: this, leftCode: pre, rightCode: post });
+            this.code = [focuser];
+            return focuser;
+        } else if (e.key === '^') {
+            // elevate left and right (non commutative)
+            const pre = this.code.slice(0, this.caret);
+            const post = this.code.slice(this.caret, this.code.length);
+            const focuser = new ExpJoinerElement({ parentEditor: this, leftCode: pre, rightCode: post });
+            this.code = [focuser];
+            return focuser;
+        } else if (e.key === '√') {
+            // no elevations
+            const focuser = new RadicalJoinerElement({ parentEditor: this });
+            this.code.splice(this.caret, 0, focuser);
+            return focuser;
+        } else if (e.key === '[') {
+            const pre = this.code.slice(0, this.caret);
+            const post = this.code.slice(this.caret, this.code.length);
+            const focuser = new MatrixJoinerElement({ parentEditor: this, code2DArray: [[pre, post], [[], []]] });
+            this.code = [...pre, focuser];
+            return focuser;
+        }
+    }
+}
+customElements.define('math-editor', MathEditorElement);
+
+export const UnaryJoinerElement = (outputFuncName, Editor, createElements,) => {
     class C extends HTMLElement {
         parentEditor = undefined;
         constructor({ parentEditor, code = [] } = {}) {
@@ -8,7 +71,7 @@ export const UnaryJoinerElement = (outputFuncName, createElements) => {
             //if (!parentEditor) throw `No parent editor on unary ${outputFuncName} joiner element`;
             this.parentEditor = parentEditor;
 
-            this.editor = new MathEditorElement({ parentEditor: this, code });
+            this.editor = new Editor({ parentEditor: this, code });
 
             this.attachShadow({ mode: 'open' });
             this.shadowRoot.append(...createElements(this.editor));
@@ -73,7 +136,7 @@ export const UnaryJoinerElement = (outputFuncName, createElements) => {
     return C;
 }
 
-export const BinaryJoinerElement = (outputFuncName, createElements) => {
+export const BinaryJoinerElement = (outputFuncName, LeftEditor, RightEditor, createElements,) => {
     class C extends HTMLElement {
         parentEditor = undefined;
         constructor({ parentEditor, leftCode = [], rightCode = [] } = {}) {
@@ -81,8 +144,8 @@ export const BinaryJoinerElement = (outputFuncName, createElements) => {
             //if (!parentEditor) throw `No parent editor on binary ${outputFuncName} joiner element`;
             this.parentEditor = parentEditor;
 
-            this.leftEditor = new MathEditorElement({ parentEditor: this, code: leftCode });
-            this.rightEditor = new MathEditorElement({ parentEditor: this, code: rightCode });
+            this.leftEditor = new LeftEditor({ parentEditor: this, code: leftCode });
+            this.rightEditor = new RightEditor({ parentEditor: this, code: rightCode });
 
             this.attachShadow({ mode: 'open' });
             this.shadowRoot.append(...createElements(this.leftEditor, this.rightEditor));
@@ -170,7 +233,7 @@ export const GridJoinerElement = (outputFuncName, createElements) => {
             for (let x = 0; x < code2DArray.length; x++) {
                 this.editor2DArray[x] = [];
                 for (let y = 0; y < code2DArray[x].length; y++) {
-                    this.editor2DArray[x][y] = new MathEditorElement({
+                    this.editor2DArray[x][y] = new MathEditorElement({ // TODO: make this a generic Editor
                         parentEditor: this,
                         code: code2DArray[x][y]
                     });
@@ -283,6 +346,7 @@ export const GridJoinerElement = (outputFuncName, createElements) => {
 
 export const DivJoinerElement = BinaryJoinerElement(
     'div',
+    MathEditorElement, MathEditorElement,
     (leftEditor, rightEditor) => {
         const styleEl = document.createElement('style');
         styleEl.textContent = `
@@ -306,6 +370,7 @@ export const DivJoinerElement = BinaryJoinerElement(
 
 export const Vec2JoinerElement = BinaryJoinerElement(
     'vec2',
+    MathEditorElement, MathEditorElement,
     (leftEditor, rightEditor) => {
         const styleEl = document.createElement('style');
         styleEl.textContent = `
@@ -400,20 +465,19 @@ export const MatrixJoinerElement = GridJoinerElement(
     },
 );
 
-export const BinarySymbolJoinerElement = (outputFuncName, symbol) => BinaryJoinerElement(
+export const ConstructBinarySymbolJoinerElement = (outputFuncName, LeftEditor, symbol, RightEditor) => BinaryJoinerElement(
     outputFuncName,
+    LeftEditor, RightEditor,
     (leftEditor, rightEditor) => {
         const plusEl = document.createElement('span');
         plusEl.textContent = symbol;
         return [leftEditor, plusEl, rightEditor];
     },
 );
-export const PlusJoinerElement = BinarySymbolJoinerElement('plus', '+');
-export const MulJoinerElement = BinarySymbolJoinerElement('mul', '·');
-export const SubJoinerElement = BinarySymbolJoinerElement('sub', '-');
 
-export const ExpJoinerElement = BinaryJoinerElement(
-    'exp',
+export const ConstructExpJoinerElement = (outputFuncName, LeftEditor, RightEditor) => BinaryJoinerElement(
+    outputFuncName,
+    LeftEditor, RightEditor,
     (leftEditor, rightEditor) => {
         const styleEl = document.createElement('style');
         styleEl.textContent = `
@@ -438,6 +502,7 @@ export const ExpJoinerElement = BinaryJoinerElement(
 
 export const RadicalJoinerElement = UnaryJoinerElement(
     'sqrt',
+    MathEditorElement,
     (editor) => {
         const styleEl = document.createElement('style');
         styleEl.textContent = `
@@ -458,9 +523,14 @@ export const RadicalJoinerElement = UnaryJoinerElement(
 
         `;
         const objEl = document.createElement('img');
-        objEl.src = './radical.svg';
+        objEl.src = './assets/radical.svg';
         const rootEditorWrapperEl = document.createElement('span');
         rootEditorWrapperEl.append(editor);
         return [styleEl, objEl, rootEditorWrapperEl];
     },
 );
+
+export const ExpJoinerElement = ConstructExpJoinerElement('exp', MathEditorElement, MathEditorElement);
+export const PlusJoinerElement = ConstructBinarySymbolJoinerElement('plus', MathEditorElement, '+', MathEditorElement);
+export const MulJoinerElement = ConstructBinarySymbolJoinerElement('mul', MathEditorElement, '·', MathEditorElement);
+export const SubJoinerElement = ConstructBinarySymbolJoinerElement('sub', MathEditorElement, '-', MathEditorElement);

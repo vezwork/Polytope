@@ -1,4 +1,4 @@
-import { GraphEditorElement, ColoredGraphEditorElement, ForceGraphEditorElement } from "./editor.js";
+import { GraphEditorElement, ColoredGraphEditorElement, ForceGraphEditorElement } from "./lib/editor.js";
 import { PlusJoinerElement, DivJoinerElement, ExpJoinerElement, RadicalJoinerElement, MulJoinerElement, SubJoinerElement } from "./sub_math_editors.js";
 
 const mathOperations = [{

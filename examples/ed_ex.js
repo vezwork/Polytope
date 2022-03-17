@@ -7,12 +7,18 @@ constructor({ nodes, edges }) {
 
     next() {
         const currentEdges = this.edges[this.stateIndex];
-        const randomEdge = Math.floor(Math.random() * currentEdges.length);
+        const randomEdge = Math.floor(
+          Math.random() * currentEdges.length
+        );
         this.stateIndex = currentEdges[randomEdge];
         return this.nodes[this.stateIndex];
     }
 }
 
-const stateMachine = new StateMachine();
+const stateMachine = new StateMachine(({
+    "nodes": ["a","b","c"],
+    "edges": [[1],[2],[0]],
+    "positions": [[40, 55],[146, 91],[61, 161]]
+}));
 
 setInterval(() => output(stateMachine.next()), 1000);
