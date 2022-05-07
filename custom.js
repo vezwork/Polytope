@@ -3,14 +3,12 @@ import {
   ConstructiveUnidirectionalEditor,
   UnidirectionalEditorPair,
 } from "./bidirectional_editor_pair.js";
-import {
-  MakeGraphEditorElement,
-  ForceColoredGraphEditorElement,
-  ForceGraphEditorElement,
-  ColoredGraphEditorElement,
-  TextEditorElement,
-  DropdownElement,
-} from "./lib/editor.js";
+import { MakeGraphEditorElement } from "./lib/dist/editors/MakeGraphEditorElement.js";
+import { ForceColoredGraphEditorElement } from "./lib/dist/editors/ForceColoredGraphEditorElement.js";
+import { ForceGraphEditorElement } from "./lib/dist/editors/ForceGraphEditorElement.js";
+import { ColoredGraphEditorElement } from "./lib/dist/editors/ColoredGraphEditorElement.js";
+import { DropdownElement } from "./lib/dist/editors/DropdownElement.js";
+import { TextEditorElement } from "./lib/dist/editors/TextEditorElement.js";
 import {
   MathEditorElement,
   PlusJoinerElement,
@@ -25,7 +23,7 @@ import {
   createJSONProcessor,
   createBuilder,
   createFunctionProcessor,
-} from "./lib/stringToEditorBuilder.js";
+} from "./lib/dist/stringToEditorBuilder.js";
 import {
   generatorPaths,
   multiplicationTable,
