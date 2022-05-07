@@ -1,28 +1,26 @@
-<div style="margin-bottom: 5px;">
-    <button id="fileOpener">📂 Open file</button>
-    <button id="fileSaver">💾 Save file</button>
+<div style="margin-bottom: 5px">
+  <button id="fileOpener">📂 Open file</button>
+  <button id="fileSaver">💾 Save file</button>
 </div>
-<div id="editor">
-    <my-text-editor></my-text-editor>
-</div>
-<br>
+<div id="editor"></div>
+<br />
 <button id="runCode">▶️ Run code</button>
-<br>
+<br />
 <strong>Output:</strong>
-<pre id="script-output"></pre>
+<button id="copyOutput">📋 Copy output</button>
+<pre id="script-output"><my-text-editor></my-text-editor></pre>
 
-<br><br><br>
-<br><br><br>
-<br><br><br>
-<br><br><br>
-<br><br><br>
-<br><br><br>
-<br><br><br>
-<br><br><br>
-<br><br><br>
-<br><br><br>
-<br><br><br>
-
+<br /><br /><br />
+<br /><br /><br />
+<br /><br /><br />
+<br /><br /><br />
+<br /><br /><br />
+<br /><br /><br />
+<br /><br /><br />
+<br /><br /><br />
+<br /><br /><br />
+<br /><br /><br />
+<br /><br /><br />
 
 <!-- <div style="border: 1px solid black;">
     <button id="outputgetter">Get javascript code</button>
@@ -36,88 +34,128 @@
 
 <a href="pres/index.html#slide-3">Back to presentation</a>
 
-<script type="module" src="groupTheoryEditor.js"></script>
+<!-- <script type="module" src="groupTheoryEditor.js"></script> -->
 <script src="examples/math_ops.js"></script>
 <script type="module">
-    import { MyEditorElement, builder } from "./custom.js";
+  import { MyEditorElement, builder } from "./custom.js";
+  import { generatorPaths, multiplicationTable, gMap } from "./groupTheory.js";
 
-    //https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API
-    // store a reference to our file handle
-    let fileHandle;
-
-    document.getElementById('fileOpener').addEventListener('click', () => getFile());
-    document.getElementById('fileSaver').addEventListener('click', () =>
-        writeFile(fileHandle, document.querySelector('#editor my-text-editor').getOutput())
-    );
-    async function getFile() {
-        [fileHandle] = await showOpenFilePicker();
-
-        if (fileHandle.kind === 'file') {
-            const fileData = await fileHandle.getFile();
-            const contents = await fileData.text();
-            document.getElementById('editor').innerHTML = '';
-            document.getElementById('editor').append(new MyEditorElement({
-                code: builder(contents).output
-            }));
-        } else if (fileHandle.kind === 'directory') {
-        }
-    }
-    async function writeFile(fileHandle, contents) {
-        if (!fileHandle) [fileHandle] = await showSaveFilePicker();
-        const writable = await fileHandle.createWritable();
-        await writable.write(contents);
-        await writable.close();
-    }
-
-    // document.getElementById('outputgetter').addEventListener('click', () => {
-    //     const out = document.querySelector('my-text-editor').getOutput();
-    //     document.getElementById('output').textContent = out;
-    // })
-
-    // document.getElementById('sourcegetter').addEventListener('click', () => {
-    //     const out = document.getElementById('output').textContent;
-    //     document.getElementById('source').innerHTML = '';
-    //     document.getElementById('source').append(new MyEditorElement({
-    //         code: builder(out).output
-    //     }));
-    // })
-
-    document.getElementById('runCode').addEventListener('click', () => {
-        const out = document.querySelector('my-text-editor').getOutput();
-        // evalModule(out);
-        eval(out)
+  document.getElementById("editor").append(
+    new MyEditorElement({
+      code: [],
+      builder,
     })
+  );
 
-    function output(value) {
-        document.getElementById('script-output').innerText = JSON.stringify(value);
-    };
+  //https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API
+  // store a reference to our file handle
+  let fileHandle;
 
-    // ref: https://2ality.com/2019/10/eval-via-import.html
-    // future improvement ref: https://github.com/tc39/proposal-shadowrealm
-    async function evalModule(js) {
-        const encodedJs = encodeURIComponent(js);
-        const dataUri = 'data:text/javascript;charset=utf-8,'
-            + encodedJs;
-        return import(dataUri);
+  document
+    .getElementById("fileOpener")
+    .addEventListener("click", () => getFile());
+  document
+    .getElementById("fileSaver")
+    .addEventListener("click", () =>
+      writeFile(
+        fileHandle,
+        document.querySelector("#editor my-text-editor").getOutput()
+      )
+    );
+  async function getFile() {
+    [fileHandle] = await showOpenFilePicker();
+
+    if (fileHandle.kind === "file") {
+      const fileData = await fileHandle.getFile();
+      const contents = await fileData.text();
+      document.getElementById("editor").innerHTML = "";
+      document.getElementById("editor").append(
+        new MyEditorElement({
+          code: builder(contents).output,
+          builder,
+        })
+      );
+    } else if (fileHandle.kind === "directory") {
     }
+  }
+  async function writeFile(fileHandle, contents) {
+    if (!fileHandle) [fileHandle] = await showSaveFilePicker();
+    const writable = await fileHandle.createWritable();
+    await writable.write(contents);
+    await writable.close();
+  }
+
+  // document.getElementById('outputgetter').addEventListener('click', () => {
+  //     const out = document.querySelector('my-text-editor').getOutput();
+  //     document.getElementById('output').textContent = out;
+  // })
+
+  // document.getElementById('sourcegetter').addEventListener('click', () => {
+  //     const out = document.getElementById('output').textContent;
+  //     document.getElementById('source').innerHTML = '';
+  //     document.getElementById('source').append(new MyEditorElement({
+  //         code: builder(out).output
+  //     }));
+  // })
+
+  document.getElementById("runCode").addEventListener("click", () => {
+    const out = document.querySelector("my-text-editor").getOutput();
+    // evalModule(out);
+    document.getElementById("script-output").innerHTML = "";
+    eval(out);
+  });
+
+  // This function is not used in the source files, but may be used in
+  // the editor to output.
+  const Polytope = {};
+  Polytope.out = (value) => {
+    document.getElementById("script-output").append(
+      new MyEditorElement({
+        code: builder("(" + JSON.stringify(value) + ")").output,
+        builder,
+      })
+    );
+  };
+
+  document.getElementById("copyOutput").addEventListener("click", () => {
+    copyToClipboard(
+      document.getElementById("script-output").children[0].getOutput()
+    );
+  });
+
+  async function copyToClipboard(string) {
+    const tempTextEl = document.createElement("textarea");
+    tempTextEl.value = string;
+    document.body.appendChild(tempTextEl);
+    tempTextEl.select();
+    document.execCommand("copy");
+    tempTextEl.remove();
+  }
+
+  // ref: https://2ality.com/2019/10/eval-via-import.html
+  // future improvement ref: https://github.com/tc39/proposal-shadowrealm
+  async function evalModule(js) {
+    const encodedJs = encodeURIComponent(js);
+    const dataUri = "data:text/javascript;charset=utf-8," + encodedJs;
+    return import(dataUri);
+  }
 </script>
 
 <style>
-     @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;600&display=swap');
-body {
-    width:920px;
-        margin: 30px auto;
-        font-size: 25px;
-}
+  @import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;600&display=swap");
+  body {
+    width: 920px;
+    margin: 30px auto;
+    font-size: 25px;
+  }
 
-my-text-editor {
+  #editor my-text-editor {
     width: 100%;
-    min-height: 780px;
-}
+    min-height: 480px;
+  }
 
-    body, button {
-        
-        
-        font-family: 'Fira Code';
-    }
+  body,
+  button {
+    font-family: "Fira Code";
+  }
 </style>
