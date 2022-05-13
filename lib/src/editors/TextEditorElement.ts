@@ -47,7 +47,7 @@ export class TextEditorElement extends EditorElement {
                 height: inherit;
                 display: inline-block;
             }
-            :host(:not(:focus)) code caret {
+            :host(:not(:focus-visible)) code caret {
                 display: none;
             }
             caret {
@@ -95,19 +95,30 @@ export class TextEditorElement extends EditorElement {
       this.render();
     });
     this.addEventListener("mousedown", (e) => {
-      const targetEl = (e as any).path[0];
-      if (targetEl.getAttribute("i")) {
-        let chari = parseInt(targetEl.getAttribute("i"));
+      const cand = Array.from(this.codeEl.children)
+        .map((childEl) => ({
+          el: childEl,
+          rect: childEl.getBoundingClientRect(),
+        }))
+        .filter(({ el, rect }) => {
+          return e.pageY > rect.top && e.pageY < rect.bottom;
+        })
+        .sort(
+          (childA, childB) =>
+            Math.abs(e.screenX - childA.rect.right) -
+            Math.abs(Math.abs(e.screenX - childB.rect.right))
+        )[0];
 
-        const rect = targetEl.getBoundingClientRect();
-        const x = e.clientX - rect.left; //x position within the element.
-        if (x >= rect.width / 2) {
+      if (cand && cand.el.getAttribute("i")) {
+        let chari = parseInt(cand.el.getAttribute("i"));
+        const x = e.pageX - cand.rect.left; //x position within the element.
+        if (x >= cand.rect.width / 2) {
           chari = chari + 1;
         }
-
         this.caret = chari;
-        this.minorCaret = this.caret;
+        this.minorCaret = chari;
       }
+
       this.render();
       setTimeout(() => this.focusEditor());
     });
@@ -491,6 +502,7 @@ export class TextEditorElement extends EditorElement {
         results.push(charEl);
       } else {
         const slot = slotOrChar;
+        slot.setAttribute("i", i);
         results.push(slot);
       }
     }
