@@ -1,9 +1,10 @@
-import { TextEditorElement } from "./lib/dist/editors/TextEditorElement.js";
+import { TextEditorElement } from "./TextEditorElement.js";
 import { UnaryJoinerElement } from "./mathEditors.js";
+import { EditorElement } from "../editor.js";
 
 export class MarkdownEditorElement extends TextEditorElement {
-  constructor() {
-    super(...arguments);
+  constructor(arg) {
+    super(arg);
 
     this.style.setProperty("--editor-name", `'markdown'`);
     this.style.setProperty("--editor-color", "#376e32");
@@ -12,7 +13,7 @@ export class MarkdownEditorElement extends TextEditorElement {
     this.style.setProperty("--editor-outline-color", "#376e32");
   }
 
-  keyHandler(e) {
+  keyHandler(e: KeyboardEvent) {
     if (e.key === "-") {
       // no elevations
       const focuser = new BulletJoinerElement({ parentEditor: this });
@@ -38,8 +39,9 @@ export class MarkdownEditorElement extends TextEditorElement {
 customElements.define("markdown-editor", MarkdownEditorElement);
 
 class HeaderElement extends TextEditorElement {
-  constructor() {
-    super(...arguments);
+  declare parentEditor?: MarkdownEditorElement;
+  constructor(arg) {
+    super(arg);
 
     this.style.setProperty("--editor-name", `'markdown'`);
     this.style.setProperty("--editor-color", "#376e32");
@@ -51,16 +53,13 @@ class HeaderElement extends TextEditorElement {
     this.style.setProperty("padding", "10px");
   }
 
-  keyHandler(e) {
+  keyHandler(e: KeyboardEvent) {
     if (e.key === "Enter") {
-      this.parentEditor.parentEditor.focus(this.parentEditor, 1);
-      this.parentEditor.parentEditor.code.splice(
-        this.parentEditor.parentEditor.caret,
-        0,
-        "\n"
-      );
-      this.parentEditor.parentEditor.focus(this.parentEditor, 1);
+      this.parentEditor.focusEditor(this, 1);
+      this.parentEditor.code.splice(this.parentEditor.caret, 0, "\n");
+      this.parentEditor.focusEditor(this, 1);
     }
+    return null;
   }
   getOutput() {
     return `# ${super.getOutput()}`;
@@ -69,8 +68,9 @@ class HeaderElement extends TextEditorElement {
 customElements.define("markdown-header-inner-editor", HeaderElement);
 
 class BulletJoinerInnerElement extends TextEditorElement {
-  constructor() {
-    super(...arguments);
+  declare parentEditor?: EditorElement & { parentEditor: TextEditorElement };
+  constructor(arg) {
+    super(arg);
 
     this.style.setProperty("--editor-name", `'markdown'`);
     this.style.setProperty("--editor-color", "#376e32");
@@ -79,9 +79,9 @@ class BulletJoinerInnerElement extends TextEditorElement {
     this.style.setProperty("--editor-outline-color", "#376e32");
   }
 
-  keyHandler(e) {
+  keyHandler(e: KeyboardEvent) {
     if (e.key === "Enter") {
-      this.parentEditor.parentEditor.focus(this.parentEditor, 1);
+      this.parentEditor.parentEditor.focusEditor(this.parentEditor, 1);
       const focuser = new BulletJoinerElement({
         parentEditor: this.parentEditor.parentEditor,
       });
@@ -91,9 +91,10 @@ class BulletJoinerInnerElement extends TextEditorElement {
         "\n",
         focuser
       );
-      this.parentEditor.parentEditor.focus(this.parentEditor, 1);
-      setTimeout(() => focuser.focus(this.parentEditor.parentEditor, 1));
+      this.parentEditor.parentEditor.focusEditor(this.parentEditor, 1);
+      setTimeout(() => focuser.focusEditor(this.parentEditor.parentEditor, 1));
     }
+    return null;
   }
 }
 customElements.define("markdown-bullet-inner-editor", BulletJoinerInnerElement);

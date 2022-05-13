@@ -2,7 +2,7 @@ import {
   BidirectionalEditorPair,
   ConstructiveUnidirectionalEditor,
   UnidirectionalEditorPair,
-} from "./bidirectional_editor_pair.js";
+} from "./lib/dist/editors/bidirectional_editor_pair.js";
 import { MakeGraphEditorElement } from "./lib/dist/editors/MakeGraphEditorElement.js";
 import { ForceColoredGraphEditorElement } from "./lib/dist/editors/ForceColoredGraphEditorElement.js";
 import { ForceGraphEditorElement } from "./lib/dist/editors/ForceGraphEditorElement.js";
@@ -18,7 +18,7 @@ import {
   MulJoinerElement,
   SubJoinerElement,
   MatrixJoinerElement,
-} from "./mathEditors.js";
+} from "./lib/dist/editors/mathEditors.js";
 import {
   createJSONProcessor,
   createBuilder,
@@ -29,7 +29,7 @@ import {
   multiplicationTable,
   cycleGraphFromMulTable,
 } from "./groupTheory.js";
-import { MarkdownEditorElement } from "./markdownEditors.js";
+import { MarkdownEditorElement } from "./lib/dist/editors/markdownEditors.js";
 
 const ED = ConstructiveUnidirectionalEditor({
   name: "eval-testing",

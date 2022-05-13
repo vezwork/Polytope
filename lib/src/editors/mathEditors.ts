@@ -1,8 +1,9 @@
-import { TextEditorElement } from "./lib/dist/editors/TextEditorElement.js";
+import { EditorElement } from "../editor.js";
+import { TextEditorElement } from "./TextEditorElement.js";
 
 export class MathEditorElement extends TextEditorElement {
-  constructor() {
-    super(...arguments);
+  constructor(arg) {
+    super(arg);
 
     this.style.setProperty("--editor-name", `'math'`);
     this.style.setProperty("--editor-color", "#FFD600");
@@ -11,7 +12,7 @@ export class MathEditorElement extends TextEditorElement {
     this.style.setProperty("--editor-outline-color", "#fff1a8");
   }
 
-  keyHandler(e) {
+  keyHandler(e: KeyboardEvent) {
     if (e.key === "/") {
       // elevate left and right (non commutative)
       const pre = this.code.slice(0, this.caret);
@@ -90,26 +91,24 @@ export class MathEditorElement extends TextEditorElement {
 customElements.define("math-editor", MathEditorElement);
 
 export const UnaryJoinerElement = (outputFuncName, Editor, createElements) => {
-  class C extends HTMLElement {
-    parentEditor = undefined;
-    constructor({ parentEditor, code = [] } = {}) {
-      super();
-      //if (!parentEditor) throw `No parent editor on unary ${outputFuncName} joiner element`;
-      this.parentEditor = parentEditor;
+  class C extends EditorElement {
+    editor: EditorElement;
 
-      this.editor = new Editor({ parentEditor: this, code });
+    constructor(arg) {
+      super(arg);
 
-      this.attachShadow({ mode: "open" });
+      this.editor = new Editor({ parentEditor: this, code: arg.code });
+
       this.shadowRoot.append(...createElements(this.editor));
 
       this.addEventListener("focus", (e) => {
         e.stopPropagation();
-        this.focus();
+        this.focusEditor();
       });
       //this.addEventListener('blur', (e) => e.stopPropagation());
       this.addEventListener("mousedown", (e) => {
         e.stopPropagation();
-        this.focus();
+        this.focusEditor();
       });
       this.addEventListener("mousemove", (e) => e.stopPropagation());
       //this.addEventListener('keydown', (e) => e.stopPropagation());
@@ -120,7 +119,11 @@ export const UnaryJoinerElement = (outputFuncName, Editor, createElements) => {
       });
     }
 
-    focusEditor(fromEl, position, isSelecting) {
+    focusEditor(
+      fromEl?: EditorElement,
+      position?: 0 | 1,
+      isSelecting?: boolean
+    ) {
       super.focus();
 
       if (fromEl !== undefined && position !== undefined) {
@@ -168,32 +171,33 @@ export const BinaryJoinerElement = (
   RightEditor,
   createElements
 ) => {
-  class C extends HTMLElement {
-    parentEditor = undefined;
-    constructor({ parentEditor, leftCode = [], rightCode = [] } = {}) {
-      super();
-      //if (!parentEditor) throw `No parent editor on binary ${outputFuncName} joiner element`;
-      this.parentEditor = parentEditor;
+  class C extends EditorElement {
+    leftEditor: EditorElement;
+    rightEditor: EditorElement;
+    constructor(arg) {
+      super(arg);
 
-      this.leftEditor = new LeftEditor({ parentEditor: this, code: leftCode });
+      this.leftEditor = new LeftEditor({
+        parentEditor: this,
+        code: arg.leftCode,
+      });
       this.rightEditor = new RightEditor({
         parentEditor: this,
-        code: rightCode,
+        code: arg.rightCode,
       });
 
-      this.attachShadow({ mode: "open" });
       this.shadowRoot.append(
         ...createElements(this.leftEditor, this.rightEditor)
       );
 
       this.addEventListener("focus", (e) => {
         e.stopPropagation();
-        this.focus();
+        this.focusEditor();
       });
       //this.addEventListener('blur', (e) => e.stopPropagation());
       this.addEventListener("mousedown", (e) => {
         e.stopPropagation();
-        this.focus();
+        this.focusEditor();
       });
       //this.addEventListener('keydown', (e) => e.stopPropagation());
       this.addEventListener("childEditorUpdate", (e) => {
@@ -203,7 +207,11 @@ export const BinaryJoinerElement = (
       });
     }
 
-    focusEditor(fromEl, position, isSelecting) {
+    focusEditor(
+      fromEl?: EditorElement,
+      position?: 0 | 1,
+      isSelecting?: boolean
+    ) {
       super.focus();
 
       // TODO: add handling for backspace out of right editor
@@ -259,36 +267,33 @@ export const BinaryJoinerElement = (
 };
 
 export const GridJoinerElement = (outputFuncName, createElements) => {
-  class C extends HTMLElement {
-    parentEditor = undefined;
-    constructor({ parentEditor, code2DArray = [[[]]] } = {}) {
-      super();
-      //if (!parentEditor) throw `No parent editor on binary ${outputFuncName} joiner element`;
-      this.parentEditor = parentEditor;
+  class C extends EditorElement {
+    editor2DArray: MathEditorElement[][];
+    constructor(arg) {
+      super(arg);
 
       this.editor2DArray = [];
-      for (let x = 0; x < code2DArray.length; x++) {
+      for (let x = 0; x < arg.code2DArray.length; x++) {
         this.editor2DArray[x] = [];
-        for (let y = 0; y < code2DArray[x].length; y++) {
+        for (let y = 0; y < arg.code2DArray[x].length; y++) {
           this.editor2DArray[x][y] = new MathEditorElement({
             // TODO: make this a generic Editor
             parentEditor: this,
-            code: code2DArray[x][y],
+            code: arg.code2DArray[x][y],
           });
         }
       }
 
-      this.attachShadow({ mode: "open" });
       this.shadowRoot.append(...createElements(this.editor2DArray));
 
       this.addEventListener("focus", (e) => {
         e.stopPropagation();
-        this.focus();
+        this.focusEditor();
       });
       //this.addEventListener('blur', (e) => e.stopPropagation());
       this.addEventListener("mousedown", (e) => {
         e.stopPropagation();
-        this.focus();
+        this.focusEditor();
       });
       //this.addEventListener('keydown', (e) => e.stopPropagation());
       this.addEventListener("childEditorUpdate", (e) => {
@@ -298,7 +303,11 @@ export const GridJoinerElement = (outputFuncName, createElements) => {
       });
     }
 
-    focusEditor(fromEl, position, isSelecting) {
+    focusEditor(
+      fromEl?: EditorElement,
+      position?: 0 | 1,
+      isSelecting?: boolean
+    ) {
       super.focus();
 
       // TODO: add handling for backspace out of right editor

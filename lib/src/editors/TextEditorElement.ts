@@ -15,7 +15,10 @@ export class TextEditorElement extends EditorElement {
   builder?: Function;
   styleEl: HTMLStyleElement;
   codeEl: HTMLElement;
-  keyHandler?: Function;
+
+  keyHandler(e: KeyboardEvent): EditorElement | null {
+    return null;
+  }
 
   constructor({ code, builder }: TextEditorArgumentObject = {}) {
     super(...arguments);
@@ -76,23 +79,20 @@ export class TextEditorElement extends EditorElement {
       this.focusEditor(e.detail, 1);
       setTimeout(() => {
         this.code = this.code.filter((slotOrChar) => slotOrChar !== e.detail);
-        this.codeEl.innerHTML = "";
-        this.codeEl.append(...this.displayHTML());
+        this.render();
       });
     });
     this.addEventListener("subEditorReplaced", (e: CustomEvent) => {
       const index = this.code.indexOf(e.detail.old);
       this.code.splice(index, 1, e.detail.new);
-      this.codeEl.innerHTML = "";
-      this.codeEl.append(...this.displayHTML());
+      this.render();
       setTimeout(() => {
         e.detail.new.focusEditor();
       });
     });
     this.addEventListener("blur", (e) => {
       this.minorCaret = this.caret;
-      this.codeEl.innerHTML = "";
-      this.codeEl.append(...this.displayHTML());
+      this.render();
     });
     this.addEventListener("mousedown", (e) => {
       const targetEl = (e as any).path[0];
@@ -108,8 +108,7 @@ export class TextEditorElement extends EditorElement {
         this.caret = chari;
         this.minorCaret = this.caret;
       }
-      this.codeEl.innerHTML = "";
-      this.codeEl.append(...this.displayHTML());
+      this.render();
       setTimeout(() => this.focusEditor());
     });
     this.addEventListener("mousemove", (e) => {
@@ -127,8 +126,7 @@ export class TextEditorElement extends EditorElement {
           if (chari !== this.caret) {
             this.caret = chari;
 
-            this.codeEl.innerHTML = "";
-            this.codeEl.append(...this.displayHTML());
+            this.render();
           }
         }
       }
@@ -142,8 +140,7 @@ export class TextEditorElement extends EditorElement {
         console.log("copied!", output);
         if (e.type === "cut") {
           this.backspace();
-          this.codeEl.innerHTML = "";
-          this.codeEl.append(...this.displayHTML());
+          this.render();
 
           this.parentEditor?.dispatchEvent(
             new CustomEvent("childEditorUpdate", {
@@ -168,15 +165,13 @@ export class TextEditorElement extends EditorElement {
 
             return thing;
           });
-          console.log(unwrappedOut);
           this.code.splice(this.caret, 0, ...unwrappedOut);
           this.moveCaret(unwrappedOut.length);
         } else {
           this.insertText(paste);
           this.moveCaret(paste.length);
         }
-        this.codeEl.innerHTML = "";
-        this.codeEl.append(...this.displayHTML());
+        this.render();
       }
     });
     this.addEventListener("keydown", (e) => {
@@ -189,8 +184,7 @@ export class TextEditorElement extends EditorElement {
           const maybeFocuser = this.keyHandler(e);
 
           if (maybeFocuser) {
-            this.codeEl.innerHTML = "";
-            this.codeEl.append(...this.displayHTML());
+            this.render();
             this.blur();
             maybeFocuser.focusEditor();
 
@@ -214,8 +208,7 @@ export class TextEditorElement extends EditorElement {
           );
         }
         this.backspace();
-        this.codeEl.innerHTML = "";
-        this.codeEl.append(...this.displayHTML());
+        this.render();
 
         this.parentEditor?.dispatchEvent(
           new CustomEvent("childEditorUpdate", {
@@ -228,8 +221,7 @@ export class TextEditorElement extends EditorElement {
       } else if (e.key === "Enter") {
         this.insertText("\n");
         const focuser = this.moveCaret(1);
-        this.codeEl.innerHTML = "";
-        this.codeEl.append(...this.displayHTML());
+        this.render();
         //note: shouldn't happen in practice
         if (focuser) {
           throw "unexpected codepath TextEditorElement Enter";
@@ -253,46 +245,38 @@ export class TextEditorElement extends EditorElement {
       } else if (e.key === "Tab") {
         this.insertText("  ");
         const focuser = this.moveCaret(2);
-        this.codeEl.innerHTML = "";
-        this.codeEl.append(...this.displayHTML());
+        this.render();
         e.preventDefault();
       } else if (e.key === "ArrowLeft") {
         const focuser = this.moveCaret(-1, e.shiftKey);
-        this.codeEl.innerHTML = "";
-        this.codeEl.append(...this.displayHTML());
+        this.render();
         if (focuser) {
           this.blur();
-          console.log(focuser);
           focuser.focusEditor(this, 0, e.shiftKey);
           this.isCaretInSlot = true;
         }
       } else if (e.key === "ArrowRight") {
         const focuser = this.moveCaret(1, e.shiftKey);
-        this.codeEl.innerHTML = "";
-        this.codeEl.append(...this.displayHTML());
+        this.render();
         if (focuser) {
           this.blur();
-          console.log(focuser);
           focuser.focusEditor(this, 1, e.shiftKey);
           this.isCaretInSlot = true;
         }
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         this.moveCaretUp(e.shiftKey);
-        this.codeEl.innerHTML = "";
-        this.codeEl.append(...this.displayHTML());
+        this.render();
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
         this.moveCaretDown(e.shiftKey);
-        this.codeEl.innerHTML = "";
-        this.codeEl.append(...this.displayHTML());
+        this.render();
       } else {
         if (e.ctrlKey || e.metaKey) return;
         e.preventDefault();
         this.insertText(e.key);
         this.moveCaret(1);
-        this.codeEl.innerHTML = "";
-        this.codeEl.append(...this.displayHTML());
+        this.render();
         // note: shouldn't happen in practice
         //if (focuser) {
         //    this.blur();
@@ -308,8 +292,7 @@ export class TextEditorElement extends EditorElement {
         );
       }
     });
-    this.codeEl.innerHTML = "";
-    this.codeEl.append(...this.displayHTML());
+    this.render();
     this.addEventListener("childEditorUpdate", (e) => {
       this.parentEditor?.dispatchEvent(
         new CustomEvent("childEditorUpdate", {
@@ -481,6 +464,11 @@ export class TextEditorElement extends EditorElement {
     if (!isSelecting) this.minorCaret = this.caret;
   }
 
+  render() {
+    this.codeEl.innerHTML = "";
+    this.codeEl.append(...this.displayHTML());
+  }
+
   displayHTML() {
     let results = [];
 
@@ -544,8 +532,7 @@ export class TextEditorElement extends EditorElement {
           // case: exiting from slot
           this.caret = i + position;
           if (!isSelecting) this.minorCaret = this.caret;
-          this.codeEl.innerHTML = "";
-          this.codeEl.append(...this.displayHTML());
+          this.render();
           return;
         }
       }
@@ -559,8 +546,7 @@ export class TextEditorElement extends EditorElement {
         this.caret = this.code.length;
         this.minorCaret = this.caret;
       }
-      this.codeEl.innerHTML = "";
-      this.codeEl.append(...this.displayHTML());
+      this.render();
     }
   }
 
@@ -569,8 +555,7 @@ export class TextEditorElement extends EditorElement {
 
     this.minorCaret = this.caret;
 
-    this.codeEl.innerHTML = "";
-    this.codeEl.append(...this.displayHTML());
+    this.render();
   }
 }
 customElements.define("text-editor", TextEditorElement);

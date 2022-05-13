@@ -2,7 +2,7 @@
   "compilerOptions": {
     "outDir": "./dist/",
     "noImplicitAny": false,
-    "module": "es6",
-    "target": "es6"
+    "module": "esnext",
+    "target": "esnext"
   }
 }
