@@ -3,12 +3,15 @@ import {
   ConstructiveUnidirectionalEditor,
   UnidirectionalEditorPair,
 } from "./lib/dist/editors/bidirectional_editor_pair.js";
+export { EditorElement } from "./lib/dist/editor.js";
 import { MakeGraphEditorElement } from "./lib/dist/editors/MakeGraphEditorElement.js";
 import { ForceColoredGraphEditorElement } from "./lib/dist/editors/ForceColoredGraphEditorElement.js";
 import { ForceGraphEditorElement } from "./lib/dist/editors/ForceGraphEditorElement.js";
 import { ColoredGraphEditorElement } from "./lib/dist/editors/ColoredGraphEditorElement.js";
 import { DropdownElement } from "./lib/dist/editors/DropdownElement.js";
 import { TextEditorElement } from "./lib/dist/editors/TextEditorElement.js";
+import { MusicStaffEditorElement } from "./lib/dist/editors/MusicStaffEditorElement.js";
+import { CharArrayEditorElement } from "./lib/dist/editors/CharArrayEditorElement.js";
 import {
   MathEditorElement,
   PlusJoinerElement,
@@ -219,11 +222,20 @@ const dropdownItems = [
     description: "",
     ElementConstructor: CayleyMatrixBidirectional,
   },
+  {
+    name: "Music Staff Editor",
+    ElementConstructor: MusicStaffEditorElement,
+  },
+  {
+    name: "Char Array Editor",
+    ElementConstructor: CharArrayEditorElement,
+  },
 ];
 const CustomDropdown = DropdownElement(
   dropdownItems,
   Math.random().toFixed(5).slice(1)
 );
+export const registerEditor = (editorItem) => dropdownItems.push(editorItem);
 
 export class MyEditorElement extends TextEditorElement {
   constructor() {
@@ -235,7 +247,10 @@ export class MyEditorElement extends TextEditorElement {
 
   keyHandler(e) {
     if (e.key === "Alt") {
-      const focuser = new this.CustomDropdown({ parentEditor: this });
+      const focuser = new this.CustomDropdown({
+        parentEditor: this,
+        builder: this.builder,
+      });
       this.code.splice(this.caret, 0, focuser);
       return focuser;
     }
@@ -252,12 +267,19 @@ export class MyEditorElement extends TextEditorElement {
 customElements.define("my-text-editor", MyEditorElement);
 
 const GraphEditorElement = MakeGraphEditorElement(MyEditorElement);
-dropdownItems.push({
-  name: "graph",
-  description: "make simple graphs",
-  ElementConstructor: GraphEditorElement,
-  iconPath: "./assets/icon_graph.png",
-});
+dropdownItems.push(
+  {
+    name: "graph",
+    description: "make simple graphs",
+    ElementConstructor: GraphEditorElement,
+    iconPath: "./assets/icon_graph.png",
+  },
+  {
+    name: "text",
+    description: "embedded text editor",
+    ElementConstructor: MyEditorElement,
+  }
+);
 
 const mathOperations = [
   {
@@ -307,5 +329,9 @@ export const builder = createBuilder([
   createJSONProcessor(
     (obj) => new ForceGraphEditorElement(obj),
     (obj) => Array.isArray(obj.nodes) && Array.isArray(obj.edges)
+  ),
+  createJSONProcessor(
+    (obj) => new MusicStaffEditorElement({ contents: obj }),
+    (obj) => Array.isArray(obj) && "note" in obj[0]
   ),
 ]);

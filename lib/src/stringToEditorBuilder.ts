@@ -1,27 +1,32 @@
+import type { EditorElement } from "./editor";
+
 function concatInPlace(array, otherArray) {
   for (const entry of otherArray) array.push(entry);
 }
 
-// processors is an array of functions that take 4 args:
-// - char | Editor array to process,
-// - output char | Editor array to append to,
-// - input string,
-// - and input string offset.
-// Each processor returns true if it can successfully parse char | Editor array to process, false otherwise.
-// Each processor modifies the output array argument if it is able to parse the char | Editor array to process.
-export const createBuilder = (processors = []) => {
-  const f = (string, hasOpenParen: any = false) => {
-    let result = [];
+// processors returns true if it can successfully parse char | Editor array to process, false otherwise.
+// processors modify the output array argument if it is able to parse the char | Editor array to process.
+type BuilderProcessor = (
+  toProcess: Array<EditorElement | string>,
+  output: Array<EditorElement | string>,
+  fullString: string,
+  offset: number
+) => boolean;
+
+type Builder = (
+  string: string,
+  hasOpenParen: boolean
+) => { consume: number; output: Array<EditorElement | string> };
+
+export const createBuilder = (processors: BuilderProcessor[] = []) => {
+  const f: Builder = (string, hasOpenParen = false) => {
+    let result: Array<EditorElement | string> = [];
 
     for (let i = 0; i < string.length; i++) {
       const char = string[i];
 
       if (char === "(") {
-        const { consume, output } = f(
-          string.substring(i + 1),
-          processors
-          //true
-        );
+        const { consume, output } = f(string.substring(i + 1), true);
 
         if (
           !processors.some((processor) => processor(output, result, string, i))
@@ -50,7 +55,8 @@ export const createBuilder = (processors = []) => {
 const EDITOR_IDENTIFIER = "POLYTOPE$$STRING";
 const EDITOR_IDENTIFIER_STRING = `"${EDITOR_IDENTIFIER}"`;
 export const createJSONProcessor =
-  (editorFactory, validator) => (innerString, result) => {
+  (editorFactory, validator): BuilderProcessor =>
+  (innerString, result) => {
     try {
       // Replace inner editors with a simple value so that JSON parse can parse
       // the innerString.
@@ -75,12 +81,13 @@ export const createJSONProcessor =
 
       if (!validator(processedJSON)) return false;
 
-      console.log(processedJSON, validator(processedJSON), editorFactory);
+      const a = [editorFactory(processedJSON)];
+      console.log(processedJSON, validator(processedJSON), editorFactory, a);
 
-      concatInPlace(result, [editorFactory(processedJSON)]);
+      concatInPlace(result, a);
       return true;
     } catch (e) {
-      console.error(e);
+      console.error("JSONProcessor error", innerString, result, e);
     }
 
     return false;
@@ -99,7 +106,7 @@ function objectValueMap(obj, f) {
 }
 
 export const createFunctionProcessor =
-  ({ name, arity, ElementConstructor }) =>
+  ({ name, arity, ElementConstructor }): BuilderProcessor =>
   (innerString, result, string, i) => {
     if (string.substring(i - name.length, i) === name) {
       // Only supports unary and binary ops for now.

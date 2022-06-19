@@ -2,6 +2,10 @@ import { EditorElement } from "../editor.js";
 import { TextEditorElement } from "./TextEditorElement.js";
 
 export class MathEditorElement extends TextEditorElement {
+  meta = {
+    editorName: "Math",
+  };
+
   constructor(arg) {
     super(arg);
 
@@ -92,6 +96,9 @@ customElements.define("math-editor", MathEditorElement);
 
 export const UnaryJoinerElement = (outputFuncName, Editor, createElements) => {
   class C extends EditorElement {
+    meta = {
+      editorName: "math" + outputFuncName,
+    };
     editor: EditorElement;
 
     constructor(arg) {
@@ -172,6 +179,10 @@ export const BinaryJoinerElement = (
   createElements
 ) => {
   class C extends EditorElement {
+    meta = {
+      editorName: "Math" + outputFuncName,
+    };
+
     leftEditor: EditorElement;
     rightEditor: EditorElement;
     constructor(arg) {
@@ -268,6 +279,9 @@ export const BinaryJoinerElement = (
 
 export const GridJoinerElement = (outputFuncName, createElements) => {
   class C extends EditorElement {
+    meta = {
+      editorName: "Math" + outputFuncName,
+    };
     editor2DArray: MathEditorElement[][];
     constructor(arg) {
       super(arg);

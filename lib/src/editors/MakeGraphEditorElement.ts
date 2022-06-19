@@ -14,6 +14,9 @@ export const MakeGraphEditorElement = (
   name = "custom"
 ) => {
   class GraphEditorElement extends EditorElement {
+    meta = {
+      editorName: name,
+    };
     nodes: Array<EditorNode> = [];
     styleEl: HTMLStyleElement;
     canvas: HTMLCanvasElement;

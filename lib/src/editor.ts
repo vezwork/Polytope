@@ -1,19 +1,70 @@
-export type EditorArgumentObject = { parentEditor?: EditorElement };
+export type EditorArgumentObject = {
+  parentEditor?: EditorElement;
+  builder?: (input: string) => { output: EditorElement };
+};
 
 export class EditorElement extends HTMLElement {
+  meta?: {
+    editorName?: string;
+  };
   parentEditor?: EditorElement = undefined;
+  builder?: (input: string) => { output: EditorElement };
   isFocused = false;
 
   constructor(
-    { parentEditor }: EditorArgumentObject = {
+    { parentEditor, builder }: EditorArgumentObject = {
       parentEditor: undefined,
     }
   ) {
     super();
 
+    this.builder = builder;
+
     this.parentEditor = parentEditor;
 
     this.attachShadow({ mode: "open" });
+
+    const paletteEl = document.createElement("div");
+    paletteEl.className = "palette";
+
+    // EXPERIMENTAL CODE
+    const butEl = document.createElement("span");
+    butEl.className = "but";
+    butEl.innerText = "↑eval↑";
+    butEl.addEventListener("click", async () => {
+      const [{ ConstructiveUnidirectionalEditor }, { TextEditorElement }] =
+        await Promise.all([
+          import("./editors/bidirectional_editor_pair.js"),
+          import("./editors/TextEditorElement.js"),
+        ]);
+
+      const LiftedEval = ConstructiveUnidirectionalEditor({
+        leftEditorFactory: (a, me) =>
+          new TextEditorElement({ parentEditor: me, code: [this] }),
+        leftEditorOutput: (editor) => editor.getOutput(),
+        name: Math.random().toFixed(4).toString(),
+      });
+
+      this.parentEditor?.dispatchEvent(
+        new CustomEvent("subEditorReplaced", {
+          detail: {
+            old: this,
+            new: new LiftedEval({
+              parentEditor: this.parentEditor,
+              builder: this.builder,
+            }),
+          },
+        })
+      );
+    });
+    // EXPERIMENTAL CODE END
+
+    setTimeout(
+      () => (
+        (paletteEl.innerText = this.meta?.editorName ?? "editor"),
+        paletteEl.append(butEl)
+      )
+    );
 
     const styleEl = document.createElement("style");
     styleEl.textContent = `
@@ -48,34 +99,51 @@ export class EditorElement extends HTMLElement {
                 min-height: 1.6rem;
                 min-width: 0.5rem;
             }
-            :host(:focus-visible)::before {
-                content: var(--editor-name);
+            .but {
+              display: inline-block;
+              cursor: pointer;
+              opacity: 0.8;
+              padding: 2px;
+              margin: 1px 1px 1px 6px;
+              background: var(--editor-name-color);
+              color: var(--editor-color);
+              border-radius: 0 0 3px 3px;
+            }
+            .but:hover {
+              opacity: 1;
+            }
+            .palette {
+              display: none;
+            }
+            :host(:focus) .palette {
+                display: block;
                 font-size: 14px;
-                padding: 1px 8px 2px 8px;
+                padding: 1px 2px 2px 8px;
                 background: var(--editor-color);
                 color: var(--editor-name-color);
                 position: absolute;
-                bottom: -17px;
+                bottom: -24px;
                 left: -2px;
                 border-radius: 0 0 4px 4px;
                 font-family: monospace;
                 z-index: 10;
             }
-            :host(:focus-visible) {
+            :host(:focus) {
                 border: 2px solid var(--editor-color);
                 color: black !important;
                 outline: none;
             }
-            :host(:not(:focus-visible)) {
+            :host(:not(:focus)) {
                 color: rgba(0,0,0,0.5);
             }
         `;
-    this.shadowRoot.append(styleEl);
+    this.shadowRoot.append(styleEl, paletteEl);
 
     if (!this.hasAttribute("tabindex")) this.setAttribute("tabindex", "0");
 
     this.addEventListener("focus", (e) => {
       e.stopPropagation();
+      e.preventDefault();
       this.isFocused = true;
     });
     this.addEventListener("subEditorClicked", (e: CustomEvent) => {
@@ -104,10 +172,10 @@ export class EditorElement extends HTMLElement {
 
   focusEditor(
     fromEl?: HTMLElement,
-    position?: 1 | 0 | undefined,
+    position?: 1 | 0 | -1 | undefined,
     isSelecting?: boolean
   ): void {
-    super.focus();
+    this.focus({ preventScroll: true });
   }
 
   getOutput() {

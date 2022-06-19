@@ -4,13 +4,16 @@ import { TextEditorElement } from "./TextEditorElement.js";
 
 export const DropdownElement = (editorDescriptions, name = "no-name") => {
   class C extends TextEditorElement {
+    meta = {
+      editorName: name,
+    };
     selection = 0;
 
     dropdownEl: HTMLDivElement;
     editorEls: Array<HTMLPreElement>;
 
     constructor() {
-      super(arguments[0]);
+      super(...arguments);
 
       this.style.setProperty("--editor-name", `'dropdown'`);
       this.style.setProperty("--editor-color", "grey");
@@ -60,6 +63,7 @@ export const DropdownElement = (editorDescriptions, name = "no-name") => {
                     old: this,
                     new: new ElementConstructor({
                       parentEditor: this.parentEditor,
+                      builder: this.builder,
                     }),
                   },
                 })
@@ -93,7 +97,10 @@ export const DropdownElement = (editorDescriptions, name = "no-name") => {
                   old: this,
                   new: new editorDescriptions[
                     this.selection
-                  ].ElementConstructor({ parentEditor: this.parentEditor }),
+                  ].ElementConstructor({
+                    parentEditor: this.parentEditor,
+                    builder: this.builder,
+                  }),
                 },
               })
             );

@@ -7,12 +7,14 @@ export type TextEditorArgumentObject = EditorArgumentObject & {
 };
 
 export class TextEditorElement extends EditorElement {
+  meta = {
+    editorName: "Text",
+  };
   code: Array<String | EditorElement>;
   caret = 0;
   minorCaret = 0;
   isCaretInSlot = false;
 
-  builder?: Function;
   styleEl: HTMLStyleElement;
   codeEl: HTMLElement;
 
@@ -20,10 +22,8 @@ export class TextEditorElement extends EditorElement {
     return null;
   }
 
-  constructor({ code, builder }: TextEditorArgumentObject = {}) {
+  constructor({ code }: TextEditorArgumentObject = {}) {
     super(...arguments);
-
-    this.builder = builder;
 
     this.code = code || [];
     for (const slotOrChar of this.code) {
@@ -95,50 +95,22 @@ export class TextEditorElement extends EditorElement {
       this.render();
     });
     this.addEventListener("mousedown", (e) => {
-      const cand = Array.from(this.codeEl.children)
-        .map((childEl) => ({
-          el: childEl,
-          rect: childEl.getBoundingClientRect(),
-        }))
-        .filter(({ el, rect }) => {
-          return e.pageY > rect.top && e.pageY < rect.bottom;
-        })
-        .sort(
-          (childA, childB) =>
-            Math.abs(e.screenX - childA.rect.right) -
-            Math.abs(Math.abs(e.screenX - childB.rect.right))
-        )[0];
+      if (e.buttons === 1) {
+        const pos = this.cursorPosFromMouseEvent(e);
+        this.caret = pos;
+        this.minorCaret = pos;
 
-      if (cand && cand.el.getAttribute("i")) {
-        let chari = parseInt(cand.el.getAttribute("i"));
-        const x = e.pageX - cand.rect.left; //x position within the element.
-        if (x >= cand.rect.width / 2) {
-          chari = chari + 1;
-        }
-        this.caret = chari;
-        this.minorCaret = chari;
+        this.render();
+        setTimeout(() => this.focusEditor());
       }
-
-      this.render();
-      setTimeout(() => this.focusEditor());
     });
     this.addEventListener("mousemove", (e) => {
       if (this.isFocused) {
-        const targetEl = (e as any).path[0];
-        if (targetEl.getAttribute("i") && e.buttons === 1) {
-          let chari = parseInt(targetEl.getAttribute("i"));
+        if (e.buttons === 1) {
+          const pos = this.cursorPosFromMouseEvent(e);
+          this.caret = pos;
 
-          const rect = targetEl.getBoundingClientRect();
-          const x = e.clientX - rect.left; //x position within the element.
-          if (x >= rect.width / 2) {
-            chari = chari + 1;
-          }
-
-          if (chari !== this.caret) {
-            this.caret = chari;
-
-            this.render();
-          }
+          this.render();
         }
       }
     });
@@ -176,10 +148,10 @@ export class TextEditorElement extends EditorElement {
 
             return thing;
           });
-          this.code.splice(this.caret, 0, ...unwrappedOut);
+          this.insert(unwrappedOut);
           this.moveCaret(unwrappedOut.length);
         } else {
-          this.insertText(paste);
+          this.insert(paste.split(""));
           this.moveCaret(paste.length);
         }
         this.render();
@@ -190,7 +162,7 @@ export class TextEditorElement extends EditorElement {
         // TODO: modifier is down
         return;
       }
-      if (!this.isCaretInSlot) {
+      if (e.composedPath().includes(this)) {
         if (this.keyHandler) {
           const maybeFocuser = this.keyHandler(e);
 
@@ -211,7 +183,7 @@ export class TextEditorElement extends EditorElement {
           }
         }
       }
-      if (this.isCaretInSlot) {
+      if (!e.composedPath().includes(this)) {
       } else if (e.key === "Backspace") {
         if (this.parentEditor && this.code.length === 0) {
           this.parentEditor.dispatchEvent(
@@ -230,7 +202,7 @@ export class TextEditorElement extends EditorElement {
           })
         );
       } else if (e.key === "Enter") {
-        this.insertText("\n");
+        this.insert(["\n"]);
         const focuser = this.moveCaret(1);
         this.render();
         //note: shouldn't happen in practice
@@ -254,7 +226,7 @@ export class TextEditorElement extends EditorElement {
       } else if (e.key === "Shift") {
       } else if (e.key === "Control") {
       } else if (e.key === "Tab") {
-        this.insertText("  ");
+        this.insert("  ".split(""));
         const focuser = this.moveCaret(2);
         this.render();
         e.preventDefault();
@@ -285,7 +257,7 @@ export class TextEditorElement extends EditorElement {
       } else {
         if (e.ctrlKey || e.metaKey) return;
         e.preventDefault();
-        this.insertText(e.key);
+        this.insert(e.key.split(""));
         this.moveCaret(1);
         this.render();
         // note: shouldn't happen in practice
@@ -314,6 +286,36 @@ export class TextEditorElement extends EditorElement {
         })
       );
     });
+  }
+
+  cursorPosFromMouseEvent(e: MouseEvent) {
+    const cand = Array.from(this.codeEl.children)
+      .map((childEl) => ({
+        el: childEl,
+        rect: childEl.getBoundingClientRect(),
+      }))
+      .filter(({ el, rect }) => {
+        return e.clientY > rect.top && e.clientY < rect.bottom;
+      })
+      .sort(
+        (childA, childB) =>
+          Math.abs(e.clientX - childA.rect.right) -
+          Math.abs(Math.abs(e.clientX - childB.rect.right))
+      )[0];
+
+    const tryAttribute =
+      cand?.el.getAttribute("i") ??
+      cand?.el.parentElement.getAttribute("i") ??
+      cand?.el.parentElement.parentElement.getAttribute("i");
+    if (tryAttribute) {
+      let chari = parseInt(tryAttribute);
+      const x = e.clientX - cand.rect.left; //x position within the element.
+      if (x >= cand.rect.width / 2) {
+        chari = chari + 1;
+      }
+      return chari;
+    }
+    return this.code.length - 1;
   }
 
   getHighlighted() {
@@ -345,9 +347,14 @@ export class TextEditorElement extends EditorElement {
 
   connectedCallback() {}
 
-  insertText(text) {
-    const insert = text.split("");
-    this.code.splice(this.caret, 0, ...insert);
+  insert(arr: Array<String | EditorElement>) {
+    if (this.minorCaret === this.caret) {
+      this.code.splice(this.caret, 0, ...arr);
+    } else if (this.minorCaret > this.caret) {
+      this.code.splice(this.caret, this.minorCaret - this.caret, ...arr);
+    } else if (this.minorCaret < this.caret) {
+      this.code.splice(this.minorCaret, this.caret - this.minorCaret, ...arr);
+    }
   }
 
   insertSlot() {

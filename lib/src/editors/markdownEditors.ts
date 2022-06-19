@@ -3,6 +3,10 @@ import { UnaryJoinerElement } from "./mathEditors.js";
 import { EditorElement } from "../editor.js";
 
 export class MarkdownEditorElement extends TextEditorElement {
+  meta = {
+    editorName: "Markdown",
+  };
+
   constructor(arg) {
     super(arg);
 
@@ -39,6 +43,10 @@ export class MarkdownEditorElement extends TextEditorElement {
 customElements.define("markdown-editor", MarkdownEditorElement);
 
 class HeaderElement extends TextEditorElement {
+  meta = {
+    editorName: "Markdown #",
+  };
+
   declare parentEditor?: MarkdownEditorElement;
   constructor(arg) {
     super(arg);
@@ -68,6 +76,10 @@ class HeaderElement extends TextEditorElement {
 customElements.define("markdown-header-inner-editor", HeaderElement);
 
 class BulletJoinerInnerElement extends TextEditorElement {
+  meta = {
+    editorName: "Markdown -",
+  };
+
   declare parentEditor?: EditorElement & { parentEditor: TextEditorElement };
   constructor(arg) {
     super(arg);

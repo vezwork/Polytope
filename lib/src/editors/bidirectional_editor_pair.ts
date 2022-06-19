@@ -11,6 +11,9 @@ export const BidirectionalEditorPair = ({
   name = "no-name",
 }) => {
   class C extends EditorElement {
+    meta = {
+      editorName: name,
+    };
     leftEditor: EditorElement;
     rightEditor: EditorElement;
 
@@ -24,7 +27,6 @@ export const BidirectionalEditorPair = ({
       this.leftEditor.style.height = "400";
       this.rightEditor.style.height = "400";
 
-      this.attachShadow({ mode: "open" });
       const midEl = document.createElement("span");
       midEl.textContent = "⇄";
       this.shadowRoot.append(this.leftEditor, midEl, this.rightEditor);
@@ -157,7 +159,6 @@ export const UnidirectionalEditorPair = ({
       this.leftEditor.style.height = "400";
       this.rightEditor.style.height = "400";
 
-      this.attachShadow({ mode: "open" });
       const midEl = document.createElement("span");
       midEl.textContent = "→";
       this.shadowRoot.append(this.leftEditor, midEl, this.rightEditor);
@@ -257,19 +258,57 @@ export const ConstructiveUnidirectionalEditor = ({
   name = "no-name",
 }) => {
   class C extends EditorElement {
+    meta = {
+      editorName: name,
+    };
     leftEditor: EditorElement;
     rightEditor: HTMLElement | EditorElement;
 
     constructor(arg) {
       super(arg);
 
+      this.style.setProperty("--editor-name", `'eval'`);
+      this.style.setProperty("--editor-color", "gray");
+      this.style.setProperty("--editor-name-color", "white");
+      this.style.setProperty("--editor-background-color", "LightGray");
+      this.style.setProperty("--editor-outline-color", "gray");
+      const styleEl = document.createElement("style");
+      styleEl.textContent = `
+            .but {
+              display: inline-block;
+              cursor: pointer;
+              opacity: 0.8;
+              padding: 2px;
+              margin: 1px 1px 1px 6px;
+              background: var(--editor-name-color);
+              color: var(--editor-color);
+              border-radius: 0 0 3px 3px;
+            }
+            .but:hover {
+              opacity: 1;
+            }
+        `;
+      this.shadowRoot.append(styleEl);
+
       this.leftEditor = leftEditorFactory(arg.leftCode, this);
+      this.leftEditor.parentEditor = this;
       this.rightEditor = document.createElement("span");
 
-      this.attachShadow({ mode: "open" });
       const midEl = document.createElement("div");
-      midEl.textContent = "→eval→";
-      this.shadowRoot.append(this.leftEditor, midEl, this.rightEditor);
+      midEl.innerHTML = `⟶eval⟶`;
+      const butEl = document.createElement("button");
+      butEl.innerText = "take";
+      butEl.addEventListener("click", async () =>
+        this.parentEditor?.dispatchEvent(
+          new CustomEvent("subEditorReplaced", {
+            detail: {
+              old: this,
+              new: this.rightEditor,
+            },
+          })
+        )
+      );
+      this.shadowRoot.append(this.leftEditor, midEl, this.rightEditor, butEl);
 
       this.addEventListener("focus", (e) => {
         e.stopPropagation();
@@ -281,20 +320,22 @@ export const ConstructiveUnidirectionalEditor = ({
         this.focusEditor();
       });
       //this.addEventListener('keydown', (e) => e.stopPropagation());
-      const onUpdate = async (e) => {
-        const { editor } = e.detail;
-        if (editor === this.leftEditor) {
-          const out = leftEditorOutput(this.leftEditor);
-          try {
-            const rightEditor = (await evalModule(out)).default;
+      const onUpdate = async () => {
+        const out = leftEditorOutput(this.leftEditor);
+        try {
+          console.log("(" + JSON.stringify(eval(out)) + ")");
+          //const rightEditor = (await evalModule(out)).default;
+          const rightEditor = this.builder(
+            "(" + JSON.stringify(eval(out)) + ")"
+          ).output[0];
 
-            rightEditor.parentEditor = this;
-            this.shadowRoot.replaceChild(rightEditor, this.rightEditor);
-            this.rightEditor = rightEditor;
-          } catch (er) {}
-        }
+          rightEditor.parentEditor = this;
+          this.shadowRoot.replaceChild(rightEditor, this.rightEditor);
+          this.rightEditor = rightEditor;
+        } catch (er) {}
       };
       this.addEventListener("childEditorUpdate", onUpdate);
+      onUpdate();
     }
 
     focusEditor(fromEl?: HTMLElement, position?: 0 | 1, isSelecting?: boolean) {
@@ -362,8 +403,8 @@ export const ConstructiveUnidirectionalEditor = ({
   return C;
 };
 
-async function evalModule(js) {
-  const encodedJs = encodeURIComponent(js);
-  const dataUri = "data:text/javascript;charset=utf-8," + encodedJs;
-  return import(dataUri);
-}
+// async function evalModule(js) {
+//   const encodedJs = encodeURIComponent(js);
+//   const dataUri = "data:text/javascript;charset=utf-8," + encodedJs;
+//   return import(dataUri);
+// }
