@@ -3,7 +3,7 @@ import { UnaryJoinerElement } from "./mathEditors.js";
 import { EditorElement } from "../editor.js";
 
 export class MarkdownEditorElement extends TextEditorElement {
-  meta = {
+  static meta = {
     editorName: "Markdown",
   };
 

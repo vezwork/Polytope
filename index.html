@@ -37,8 +37,18 @@
 <!-- <script type="module" src="groupTheoryEditor.js"></script> -->
 <script src="examples/math_ops.js"></script>
 <script type="module">
-  import { MyEditorElement, builder } from "./custom.js";
+  import {
+    MyEditorElement,
+    builder,
+    registerEditor,
+    EditorElement,
+  } from "./custom.js";
   import { generatorPaths, multiplicationTable, gMap } from "./groupTheory.js";
+
+  registerEditor({
+    name: "hello yay",
+    ElementConstructor: MyEditorElement,
+  });
 
   document.getElementById("editor").append(
     new MyEditorElement({
@@ -99,10 +109,29 @@
   // })
 
   document.getElementById("runCode").addEventListener("click", () => {
-    const out = document.querySelector("my-text-editor").getOutput();
-    // evalModule(out);
-    document.getElementById("script-output").innerHTML = "";
-    eval(out);
+    let outAll = "";
+    for (const editorEl of Array.from(
+      document.querySelector("#editor").children
+    )) {
+      outAll += editorEl.getOutput() + ";\n";
+    }
+    try {
+      const value = eval(outAll);
+
+      document.getElementById("editor").append(
+        new MyEditorElement({
+          code: builder("(" + JSON.stringify(value) + ")").output,
+          builder,
+        }),
+        new MyEditorElement({ code: [], builder })
+      );
+
+      document.getElementById("runCode").style.outline = `none`;
+    } catch (e) {
+      document.getElementById("runCode").style.outline = `1px solid red`;
+      console.error("error while evaluating:", outAll);
+      throw e;
+    }
   });
 
   // This function is not used in the source files, but may be used in
@@ -134,11 +163,11 @@
 
   // ref: https://2ality.com/2019/10/eval-via-import.html
   // future improvement ref: https://github.com/tc39/proposal-shadowrealm
-  async function evalModule(js) {
-    const encodedJs = encodeURIComponent(js);
-    const dataUri = "data:text/javascript;charset=utf-8," + encodedJs;
-    return import(dataUri);
-  }
+  // async function evalModule(js) {
+  //   const encodedJs = encodeURIComponent(js);
+  //   const dataUri = "data:text/javascript;charset=utf-8," + encodedJs;
+  //   return import(dataUri);
+  // }
 </script>
 
 <style>
@@ -151,7 +180,6 @@
 
   #editor my-text-editor {
     width: 100%;
-    min-height: 480px;
   }
 
   body,

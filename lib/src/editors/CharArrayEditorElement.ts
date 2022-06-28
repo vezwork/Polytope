@@ -1,7 +1,7 @@
 import { ArrayEditorElement } from "./ArrayEditorElement.js";
 
 export class CharArrayEditorElement extends ArrayEditorElement<string> {
-  meta = {
+  static meta = {
     editorName: "Char Array",
   };
 

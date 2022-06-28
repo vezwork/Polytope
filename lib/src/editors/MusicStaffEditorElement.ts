@@ -38,7 +38,7 @@ export class MusicStaffEditorElement extends ArrayEditorElement<{
   note: typeof NOTES[number] | " ";
   length: number;
 }> {
-  meta = {
+  static meta = {
     editorName: "♫ Staff",
   };
 

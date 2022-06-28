@@ -1,12 +1,18 @@
 import { withIndex } from "../Iterable.js";
-import { EditorArgumentObject, EditorElement } from "../editor.js";
+import {
+  EditorArgumentObject,
+  EditorElement,
+  focusFromParentEditorArgs,
+  enterEditorDirection,
+  exitEditorDirection,
+} from "../editor.js";
 
 export type ArrayEditorElementArguments = EditorArgumentObject & {
   contents?: Array<unknown>;
 };
 
 export class ArrayEditorElement<T> extends EditorElement {
-  meta = {
+  static meta = {
     editorName: "Array",
   };
   contents: Array<T> = [];
@@ -24,7 +30,7 @@ export class ArrayEditorElement<T> extends EditorElement {
     return []; // override me!
   }
 
-  onCaretMoveOverContentItem(contentItems: Array<T>) {
+  onCaretMoveOverContentItem(contentItems: Array<T>): void {
     // override me!
   }
 
@@ -56,26 +62,19 @@ export class ArrayEditorElement<T> extends EditorElement {
     return this.contents.length - 1;
   }
 
-  focusEditor(
-    fromEl?: HTMLElement,
-    position?: 1 | 0 | undefined,
-    isSelecting?: boolean
-  ) {
-    super.focusEditor();
+  focusFromParentEditor(args: focusFromParentEditorArgs) {
+    super.focusFromParentEditor(args);
+    const { direction, isSelecting } = args;
 
-    if (fromEl !== undefined && position !== undefined) {
-      if (position === 1) {
-        // case: entering from a parent on the left
-        this.caret = 0;
-        this.minorCaret = this.caret;
-      }
-      if (position === 0) {
-        // case: entering from a parent on the right
-        this.caret = this.contents.length;
-        this.minorCaret = this.caret;
-      }
-      this.render();
+    if (direction === enterEditorDirection.left) {
+      this.caret = 0;
+      this.minorCaret = this.caret;
     }
+    if (direction === enterEditorDirection.right) {
+      this.caret = this.contents.length;
+      this.minorCaret = this.caret;
+    }
+    this.render();
   }
 
   constructor({ contents }: ArrayEditorElementArguments = {}) {
@@ -139,8 +138,6 @@ export class ArrayEditorElement<T> extends EditorElement {
         this.caret = pos;
         this.minorCaret = pos;
         this.render();
-
-        setTimeout(() => this.focusEditor());
       }
     });
     this.addEventListener("mousemove", (e) => {
@@ -215,14 +212,22 @@ export class ArrayEditorElement<T> extends EditorElement {
         if (this.moveCaret(-1, e.shiftKey)) {
           this.parentEditor.focus();
           this.blur();
-          this.parentEditor.focusEditor(this, 0, e.shiftKey);
+          this.parentEditor.focusFromChildEditor({
+            childEditor: this,
+            direction: exitEditorDirection.left,
+            isSelecting: e.shiftKey,
+          });
         }
         this.render();
       } else if (e.key === "ArrowRight") {
         if (this.moveCaret(1, e.shiftKey)) {
           this.parentEditor.focus();
           this.blur();
-          this.parentEditor.focusEditor(this, 1, e.shiftKey);
+          this.parentEditor.focusFromChildEditor({
+            childEditor: this,
+            direction: exitEditorDirection.right,
+            isSelecting: e.shiftKey,
+          });
         }
         this.render();
       }

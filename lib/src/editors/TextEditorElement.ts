@@ -7,7 +7,7 @@ export type TextEditorArgumentObject = EditorArgumentObject & {
 };
 
 export class TextEditorElement extends EditorElement {
-  meta = {
+  static meta = {
     editorName: "Text",
   };
   code: Array<String | EditorElement>;

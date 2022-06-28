@@ -11,7 +11,7 @@ type EditorNode = {
 };
 
 export class ForceGraphEditorElement extends EditorElement {
-  meta = {
+  static meta = {
     editorName: "Force Graph",
   };
   nodes: Array<EditorNode> = [];

@@ -14,7 +14,7 @@ export const MakeGraphEditorElement = (
   name = "custom"
 ) => {
   class GraphEditorElement extends EditorElement {
-    meta = {
+    static meta = {
       editorName: name,
     };
     nodes: Array<EditorNode> = [];

@@ -11,7 +11,7 @@ export const BidirectionalEditorPair = ({
   name = "no-name",
 }) => {
   class C extends EditorElement {
-    meta = {
+    static meta = {
       editorName: name,
     };
     leftEditor: EditorElement;
@@ -258,7 +258,7 @@ export const ConstructiveUnidirectionalEditor = ({
   name = "no-name",
 }) => {
   class C extends EditorElement {
-    meta = {
+    static meta = {
       editorName: name,
     };
     leftEditor: EditorElement;

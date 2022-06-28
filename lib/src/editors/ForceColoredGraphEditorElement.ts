@@ -17,7 +17,7 @@ type EditorNode = {
 
 const GRAPH_COLORS = ["red", "blue", "green", "purple"];
 export class ForceColoredGraphEditorElement extends EditorElement {
-  meta = {
+  static meta = {
     editorName: "Force Colored Graph",
   };
   nodes: Array<EditorNode> = [];

@@ -4,7 +4,7 @@ import { TextEditorElement } from "./TextEditorElement.js";
 
 export const DropdownElement = (editorDescriptions, name = "no-name") => {
   class C extends TextEditorElement {
-    meta = {
+    static meta = {
       editorName: name,
     };
     selection = 0;

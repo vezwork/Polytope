@@ -5,7 +5,7 @@ import {
 } from "./TextEditorElement.js";
 
 export class StringEditorElement extends TextEditorElement {
-  meta = {
+  static meta = {
     editorName: "String",
   };
   constructor(arg: TextEditorArgumentObject) {
