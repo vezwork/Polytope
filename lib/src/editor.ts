@@ -1,3 +1,30 @@
+import {
+  closestElementAbove,
+  closestElementBelow,
+  closestElementToPosition,
+} from "./closestElement.js";
+
+/**
+ * ideas:
+ * - BYOTopology object i.e. directionalAndPositionCaretNav = { childAbove, closestSinkToPos,... }
+ *   - e.g. would enable `topologyFromDistanceFunction(dist)`, `torusNav`, `gridNav`,... higher order topology functions
+ * - converting between local coordinate space positions instead of one absolute coordinate space (viewport pixels)
+ *   - e.g. would enable popping out editors into modals while maintaining spatial nav
+ * - editors with carets on the left or the right (styling and position/directional navigation)
+ *   - e.g. line starts for text editor lines
+ * - abstract EditorElement to the point that it would support canvas based editors and more
+ *   - related: make it so the implementation of EditorElement does not assume the usage of EditorElement children
+ *     for internal caret nav (caret nav functions that don't assume nested children)
+ *   - this would enable implementing an editor using a central controller instead of a bunch of children
+ *   - would start to enable recursively self nested editors
+ * - flag `shouldFocusChildOnClick`. If false, focus the parent on click.
+ */
+
+/**
+ * misc refs:
+ * - https://math.stackexchange.com/questions/1790823/why-is-the-topology-of-a-graph-called-a-topology
+ */
+
 export type EditorArgumentObject = {
   parentEditor?: EditorElement;
   builder?: (input: string) => { output: EditorElement };
@@ -43,29 +70,6 @@ export type FocusFromParentEditorArgs =
       x: number;
     };
 
-function yBiasedManhattanDist(
-  [x1, y1]: [number, number],
-  [x2, y2]: [number, number]
-) {
-  return Math.abs(x1 - x2) * 2 + Math.abs(y1 - y2);
-}
-
-function closestPointOnBounds(
-  [x, y]: [number, number],
-  {
-    top,
-    right,
-    bottom,
-    left,
-  }: { top: number; right: number; bottom: number; left: number }
-): [number, number] {
-  return [clamp(left, x, right), clamp(top, y, bottom)];
-}
-
-function clamp(min: number, n: number, max: number) {
-  return Math.max(min, Math.min(n, max));
-}
-
 export class EditorElement extends HTMLElement {
   static meta?: EditorMetaObject;
 
@@ -90,115 +94,26 @@ export class EditorElement extends HTMLElement {
       (editor) => !descendents.includes(editor.parentEditor())
     );
   }
-  focusedDescendent(): EditorElement | null {
-    return this.querySelector(`[isEditor=true][isFocused=true]`);
-  }
 
-  childBelow(
-    childEditor: EditorElement,
-    carryX: number | null
-  ): EditorElement | null {
-    // mild spatial nav
-    const boundsChild = childEditor.getBoundingClientRect();
-    const boundsChildEditors = this.childEditors().map((editor) => ({
-      editor,
-      bounds: editor.getBoundingClientRect(),
-    }));
-    const boundsBelow = boundsChildEditors.filter(
-      ({ editor, bounds }) =>
-        boundsChild.bottom < bounds.top && editor !== childEditor
-    );
-    const closestBelow = boundsBelow.sort(
-      (a, b) =>
-        yBiasedManhattanDist(
-          [carryX ?? boundsChild.right, boundsChild.bottom],
-          closestPointOnBounds(
-            [carryX ?? boundsChild.right, boundsChild.bottom],
-            a.bounds
-          )
-        ) -
-        yBiasedManhattanDist(
-          [carryX ?? boundsChild.right, boundsChild.bottom],
-          closestPointOnBounds(
-            [carryX ?? boundsChild.right, boundsChild.bottom],
-            b.bounds
-          )
-        )
-    );
-    return closestBelow[0]?.editor ?? null;
+  // spatial vertical nav
+  childAbove(childEditor: EditorElement): EditorElement | null {
+    return closestElementAbove(childEditor, this.childEditors(), this.carryX);
   }
-  childAbove(
-    childEditor: EditorElement,
-    carryX: number | null
-  ): EditorElement | null {
-    // mild spatial nav
-    const boundsChild = childEditor.getBoundingClientRect();
-    const boundsChildEditors = this.childEditors().map((editor) => ({
-      editor,
-      bounds: editor.getBoundingClientRect(),
-    }));
-    const boundsAbove = boundsChildEditors.filter(
-      ({ editor, bounds }) =>
-        boundsChild.top > bounds.bottom && editor !== childEditor
-    );
-    const closestAbove = boundsAbove.sort(
-      (a, b) =>
-        yBiasedManhattanDist(
-          [carryX ?? boundsChild.right, boundsChild.top],
-          closestPointOnBounds(
-            [carryX ?? boundsChild.right, boundsChild.top],
-            a.bounds
-          )
-        ) -
-        yBiasedManhattanDist(
-          [carryX ?? boundsChild.right, boundsChild.top],
-          closestPointOnBounds(
-            [carryX ?? boundsChild.right, boundsChild.top],
-            b.bounds
-          )
-        )
-    );
-    return closestAbove[0]?.editor ?? null;
+  childBelow(childEditor: EditorElement): EditorElement | null {
+    return closestElementBelow(childEditor, this.childEditors(), this.carryX);
+  }
+  // html tree ordered horizontal nav
+  childAfter(childEditor: EditorElement): EditorElement | null {
+    const childEditors = this.childEditors();
+    return childEditors[childEditors.indexOf(childEditor) + 1] ?? null;
   }
   childBefore(childEditor: EditorElement): EditorElement | null {
     const childEditors = this.childEditors();
     return childEditors[childEditors.indexOf(childEditor) - 1] ?? null;
   }
-  childAfter(childEditor: EditorElement): EditorElement | null {
-    const childEditors = this.childEditors();
-    return childEditors[childEditors.indexOf(childEditor) + 1] ?? null;
-  }
-
   // distance to entire child bounding boxes or to just `this`'s right side
-  closestChildOrThisToPosition(pos: [number, number]): EditorElement {
-    const closestChild = this.childEditors().sort((a, b) => {
-      const aBound = a.getBoundingClientRect();
-      const bBound = b.getBoundingClientRect();
-      return (
-        yBiasedManhattanDist(pos, closestPointOnBounds(pos, aBound)) - // should really be dist to the entire right vertical segment
-        yBiasedManhattanDist(pos, closestPointOnBounds(pos, bBound))
-      );
-    })[0];
-
-    const myBound = this.getBoundingClientRect();
-    const distToClosestChild = yBiasedManhattanDist(
-      pos,
-      closestPointOnBounds(pos, closestChild.getBoundingClientRect())
-    );
-    const distToRightSideOfThis = yBiasedManhattanDist(
-      pos,
-      closestPointOnBounds(pos, {
-        top: myBound.top,
-        right: myBound.right,
-        bottom: myBound.bottom,
-        left: myBound.right - 1,
-      })
-    );
-    if (distToClosestChild < distToRightSideOfThis) {
-      return closestChild;
-    } else {
-      return this;
-    }
+  closestSinkToPosition(position: [number, number]): EditorElement {
+    return closestElementToPosition(this, this.childEditors(), position);
   }
 
   isRootEditor(): boolean {
@@ -213,7 +128,6 @@ export class EditorElement extends HTMLElement {
   isLeafEditor(): boolean {
     return !this.isParentEditor();
   }
-
   isFocused(): boolean {
     return this.getAttribute("isFocused") === "true";
   }
@@ -265,19 +179,12 @@ export class EditorElement extends HTMLElement {
       this.makeFocused();
     });
     this.addEventListener("keydown", (e) => {
-      if (e.key === "Backspace") {
-        this.onInputBackspace(e);
-      } else if (e.key.startsWith("Arrow")) {
+      if (e.key.startsWith("Arrow")) {
         this.isParentEditor()
           ? this.parentOnInputArrow(e)
           : this.leafOnInputArrow(e);
       }
     });
-  }
-
-  private onInputBackspace(e: KeyboardEvent) {
-    this.parentEditor()?.deleteChildEditor(this);
-    e.stopPropagation();
   }
 
   private parentOnInputArrow(e: KeyboardEvent) {
@@ -306,28 +213,6 @@ export class EditorElement extends HTMLElement {
     e.stopPropagation();
   }
 
-  deleteChildEditor(editor: EditorElement) {
-    const childEditors = this.childEditors();
-    const deleteIndex = childEditors.indexOf(editor);
-    if (deleteIndex === -1)
-      throw "deleteChildEditor: editor was not found in the parent";
-
-    const prevChild = childEditors[deleteIndex - 1];
-    if (prevChild) {
-      prevChild.focusFromParentEditor({
-        direction: EnterEditorDirection.left,
-      });
-    } else {
-      this.makeFocused(); // this may behave strangely, not sure if this case will even come up
-    }
-
-    editor.parentNode.removeChild(editor);
-  }
-
-  deleteBeforeChildEditor(editor: EditorElement) {
-    // TODO! case when deleting e.g. the delimitter in a text editor
-  }
-
   carryX: number | null = null;
 
   focusFromChildEditor(args: FocusFromChildEditorArgs) {
@@ -348,9 +233,9 @@ export class EditorElement extends HTMLElement {
     }
 
     const toChild = {
-      [ExitEditorDirection.up]: this.childAbove(childEditor, this.carryX),
+      [ExitEditorDirection.up]: this.childAbove(childEditor),
       [ExitEditorDirection.right]: this.childAfter(childEditor),
-      [ExitEditorDirection.down]: this.childBelow(childEditor, this.carryX),
+      [ExitEditorDirection.down]: this.childBelow(childEditor),
       [ExitEditorDirection.left]: this.childBefore(childEditor),
     }[direction];
 
@@ -393,15 +278,15 @@ export class EditorElement extends HTMLElement {
     if (direction === EnterEditorDirection.up) {
       const { x } = args;
       const myBound = this.getBoundingClientRect();
-      const a = this.closestChildOrThisToPosition([x, myBound.top]);
+      const a = this.closestSinkToPosition([x, myBound.top]);
       if (a === this) this.makeFocused();
-      else a.focusFromParentEditor({ direction, x }); // TODO: fix for carryX
+      else a.focusFromParentEditor({ direction, x });
     } else if (direction === EnterEditorDirection.down) {
       const { x } = args;
       const myBound = this.getBoundingClientRect();
-      const a = this.closestChildOrThisToPosition([x, myBound.bottom]);
+      const a = this.closestSinkToPosition([x, myBound.bottom]);
       if (a === this) this.makeFocused();
-      else a.focusFromParentEditor({ direction, x }); // TODO: fix for carryX
+      else a.focusFromParentEditor({ direction, x });
     } else if (direction === EnterEditorDirection.left)
       this.childEditors()[0].focusFromParentEditor(args);
     else if (direction === EnterEditorDirection.right) this.makeFocused();

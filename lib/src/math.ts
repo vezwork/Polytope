@@ -71,8 +71,5 @@ export const subAngles = (theta1: number, theta2: number): number =>
 
 export const mod = (a: number, n: number): number => a - Math.floor(a / n) * n;
 
-export const smoothStep = (
-  currentValue: number,
-  targetValue: number,
-  slowness: number
-): number => currentValue - (currentValue - targetValue) / slowness;
+export const clamp = (min: number, n: number, max: number) =>
+  Math.max(min, Math.min(n, max));
