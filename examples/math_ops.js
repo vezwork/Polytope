@@ -19,7 +19,7 @@ function sqrt(a) {
 }
 
 function exp(a, b) {
-    return a - b;
+    return a ** b;
 }
 
 function matrix([[a,b],[c,d]]) {

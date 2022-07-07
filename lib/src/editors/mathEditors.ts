@@ -98,6 +98,7 @@ export const UnaryJoinerElement = (outputFuncName, Editor, createElements) => {
   class C extends EditorElement {
     meta = {
       editorName: "math" + outputFuncName,
+      isUnstyled: true,
     };
     editor: EditorElement;
 
@@ -181,6 +182,7 @@ export const BinaryJoinerElement = (
   class C extends EditorElement {
     meta = {
       editorName: "Math" + outputFuncName,
+      isUnstyled: true,
     };
 
     leftEditor: EditorElement;

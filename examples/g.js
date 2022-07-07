@@ -4,3 +4,7 @@ const gMul = multiplicationTable(g, gPaths);
 
 const gSq = gMap(g, e => gMul[e][e]);
 Polytope.out(gSq);
+({
+      "nodes": ["",""],
+      "edges": [[],[]]
+  })

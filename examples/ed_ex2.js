@@ -1,4 +1,4 @@
-plus(sub({ a: 1, 1), exp(b: 2, exp(1, 1 }, 2)))
+plus(sub(1, 1), exp(2, exp(1, 2)))
 
 
 

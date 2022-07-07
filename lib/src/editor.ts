@@ -6,6 +6,7 @@ export type EditorArgumentObject = {
 export class EditorElement extends HTMLElement {
   meta?: {
     editorName?: string;
+    isUnstyled?: boolean;
   };
   parentEditor?: EditorElement = undefined;
   builder?: (input: string) => { output: EditorElement };
@@ -58,13 +59,6 @@ export class EditorElement extends HTMLElement {
       );
     });
     // EXPERIMENTAL CODE END
-
-    setTimeout(
-      () => (
-        (paletteEl.innerText = this.meta?.editorName ?? "editor"),
-        paletteEl.append(butEl)
-      )
-    );
 
     const styleEl = document.createElement("style");
     styleEl.textContent = `
@@ -137,7 +131,12 @@ export class EditorElement extends HTMLElement {
                 color: rgba(0,0,0,0.5);
             }
         `;
-    this.shadowRoot.append(styleEl, paletteEl);
+
+    setTimeout(() => {
+      paletteEl.innerText = this.meta?.editorName ?? "editor";
+      if (!this.meta?.isUnstyled) this.shadowRoot.append(styleEl, paletteEl);
+      paletteEl.append(butEl);
+    });
 
     if (!this.hasAttribute("tabindex")) this.setAttribute("tabindex", "0");
 
