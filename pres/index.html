@@ -20,6 +20,66 @@
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
+            <style>
+              .logo-color-stop-1 {
+                animation: blinker 7s ease-in-out infinite;
+                animation-direction: alternate;
+              }
+              .logo-color-stop-2 {
+                animation: blinker 9s ease-in-out infinite;
+                animation-direction: alternate;
+              }
+              .logo-color-stop-3 {
+                animation: blinker 11s ease-in-out infinite;
+                animation-direction: alternate;
+              }
+              .logo-color-stop-4 {
+                animation: blinker 13s ease-in-out infinite;
+                animation-direction: alternate;
+              }
+              .logo-rect {
+                animation: blinker 7s ease-in-out infinite;
+                animation-direction: alternate;
+              }
+              .logo-stroke {
+                animation: blinker2 7s ease-in-out infinite;
+                animation-direction: alternate;
+              }
+
+              @keyframes blinker {
+                0% {
+                  stop-color: #5765e0;
+                  fill: #5765e0;
+                }
+                25% {
+                  stop-color: #8edac3;
+                  fill: #8edac3;
+                }
+                50% {
+                  stop-color: #fb7800;
+                  fill: #fb7800;
+                }
+                75% {
+                  stop-color: #ffcf25;
+                  fill: #ffcf25;
+                }
+              }
+
+              @keyframes blinker2 {
+                0% {
+                  stroke: #5765e0;
+                }
+                25% {
+                  stroke: #8edac3;
+                }
+                50% {
+                  stroke: #fb7800;
+                }
+                75% {
+                  stroke: #ffcf25;
+                }
+              }
+            </style>
             <rect width="55" height="13" rx="2" fill="black" />
             <path
               d="M24 12L55 12"
@@ -366,65 +426,6 @@
     }
     .bigImage-probs {
       height: 25vw;
-    }
-  }
-
-  .logo-color-stop-1 {
-    animation: blinker 7s ease-in-out infinite;
-    animation-direction: alternate;
-  }
-  .logo-color-stop-2 {
-    animation: blinker 9s ease-in-out infinite;
-    animation-direction: alternate;
-  }
-  .logo-color-stop-3 {
-    animation: blinker 11s ease-in-out infinite;
-    animation-direction: alternate;
-  }
-  .logo-color-stop-4 {
-    animation: blinker 13s ease-in-out infinite;
-    animation-direction: alternate;
-  }
-  .logo-rect {
-    animation: blinker 7s ease-in-out infinite;
-    animation-direction: alternate;
-  }
-  .logo-stroke {
-    animation: blinker2 7s ease-in-out infinite;
-    animation-direction: alternate;
-  }
-
-  @keyframes blinker {
-    0% {
-      stop-color: #5765e0;
-      fill: #5765e0;
-    }
-    25% {
-      stop-color: #8edac3;
-      fill: #8edac3;
-    }
-    50% {
-      stop-color: #fb7800;
-      fill: #fb7800;
-    }
-    75% {
-      stop-color: #ffcf25;
-      fill: #ffcf25;
-    }
-  }
-
-  @keyframes blinker2 {
-    0% {
-      stroke: #5765e0;
-    }
-    25% {
-      stroke: #8edac3;
-    }
-    50% {
-      stroke: #fb7800;
-    }
-    75% {
-      stroke: #ffcf25;
     }
   }
 </style>
