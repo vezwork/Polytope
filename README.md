@@ -11,10 +11,11 @@ ideas underlying Polytope. I am no longer actively working on this repo, and my 
 For more info:
 
 - [Polytope project page](https://elliot.website/editor/)
-
-<iframe width="560" height="315" src="https://www.youtube.com/embed/8g_XCZSY7lM" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+- Polytope Demo on Youtube: [<img src="https://i.ytimg.com/vi_webp/8g_XCZSY7lM/maxresdefault.webp" alt="Polytope Demo Youtube Link" width="300">](https://www.youtube.com/embed/8g_XCZSY7lM")
 
 ## Try it out
+
+Note that this is an experiment and has many bugs and issues.
 
 ## Running locally and contributing
 
