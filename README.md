@@ -11,7 +11,7 @@ ideas underlying Polytope. I am no longer actively working on this repo, and my 
 For more info:
 
 - [Polytope project page](https://elliot.website/editor/)
-- Polytope Demo on Youtube: [<img src="https://i.ytimg.com/vi_webp/8g_XCZSY7lM/maxresdefault.webp" alt="Polytope Demo Youtube Link" width="300">](https://www.youtube.com/embed/8g_XCZSY7lM")
+- Polytope Demo on Youtube: [<img src="https://i.ytimg.com/vi_webp/8g_XCZSY7lM/maxresdefault.webp" alt="Polytope Demo Youtube Link" width="300">](https://www.youtube.com/embed/8g_XCZSY7lM)
 
 ## Try it out
 
