@@ -1,9 +1,8 @@
 {
-  "name": "brilliant-light",
+  "name": "polytope",
   "version": "1.0.0",
-  "description": "An interactive exploration of how light reflects",
+  "description": "",
   "scripts": {
-    "dev": "npx webpack --watch",
     "build": "tsc --watch"
   },
   "devDependencies": {
