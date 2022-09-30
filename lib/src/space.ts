@@ -1,5 +1,8 @@
 // https://codepen.io/vezwork/pen/XWZLBVr?editors=1010
 
+import { EndoMapWithInverse } from "./data.js";
+import { skip } from "./Iterable.js";
+
 /**
  * https://developer.mozilla.org/en-US/docs/Web/CSS/CSSOM_View/Coordinate_systems#page
  *
@@ -9,75 +12,40 @@ type PagePixels = number;
 /**
  * A caret sink represents a position that a caret could be in.
  */
-type CaretSink = {
+export type CaretSink = {
   top: PagePixels;
   bottom: PagePixels;
   x: PagePixels;
 };
 
-/** Given a map that represents an undirected graph
- * (specifically a linear forest en.wikipedia.org/wiki/Path_graph)
- * returns an ordered array of arrays,
- * each sub-array corresponding to a path in the graph.
- */
-function verticallyOrderedlinesFromHorizontalNavMaps(
-  linearForest: Map<CaretSink, CaretSink>
-): CaretSink[][] {
-  const lines: CaretSink[][] = [];
-  const starts = new Map<CaretSink, CaretSink[]>();
-
-  for (const [to, from] of linearForest) {
-    const line = starts.get(from);
-    if (line) {
-      line.unshift(to);
-      starts.delete(from);
-      starts.set(to, line);
-    } else {
-      const newLine = [to, from];
-      lines.push(newLine);
-      starts.set(to, newLine);
-    }
-  }
-  return lines.sort(
-    (lineA, lineB) =>
-      Math.max(...lineA.map(({ top }) => top)) -
-      Math.max(...lineB.map(({ top }) => top))
-  );
-}
-
 /**
  * Given caret sinks, returns maps represented an undirected graph
- * (specifically a linear forest en.wikipedia.org/wiki/Path_graph)
+ * (specifically a linear forest https://en.wikipedia.org/wiki/Linear_forest)
  * where each caret sink's neighbors vertically (but not horizontally!) overlap with it.
- *
- * returns `toNav` and `fromNav` which are the same maps but with keys and value reversed.
- * Ideally these would be one two-way Map object but we don't have one.
  *
  * adapted from: codepen.io/vezwork/pen/KKQjQVW
  */
-function horizontalNavMaps(caretSinks: CaretSink[]) {
-  let toNav = new Map<CaretSink, CaretSink>();
-  let fromNav = new Map<CaretSink, CaretSink>();
+export function horizontalNavMaps(
+  caretSinks: CaretSink[]
+): EndoMapWithInverse<CaretSink> {
+  let nav = new EndoMapWithInverse<CaretSink>();
 
-  for (const caretSink of caretSinks.sort((c1, c2) => c1.top - c2.top)) {
-    const verticalOverlappedAndRightwardsSinks = caretSinks
-      .filter(
-        ({ top, bottom, x }) =>
-          x > caretSink.x &&
-          overlap([top, bottom], [caretSink.top, caretSink.bottom]) > 0
-      )
-      .sort((c1, c2) => c1.x - c2.x);
+  for (const curC of caretSinks.sort((c1, c2) => c1.top - c2.top)) {
+    const closestSink = caretSinks.reduce(
+      (bestC: null | CaretSink, c: CaretSink) => {
+        const isRight = c.x > curC.x;
+        const isVerticalOverlapped =
+          overlap([c.top, c.bottom], [curC.top, curC.bottom]) > 0;
+        const isClosest = bestC === null || c.x < bestC.x;
+        return isRight && isVerticalOverlapped && isClosest ? c : bestC;
+      },
+      null
+    );
 
-    const navCaretSink = !toNav.has(verticalOverlappedAndRightwardsSinks[0])
-      ? verticalOverlappedAndRightwardsSinks[0]
-      : null;
-
-    if (navCaretSink) {
-      fromNav.set(caretSink, navCaretSink);
-      toNav.set(navCaretSink, caretSink);
-    }
+    if (closestSink !== null) nav.set(curC, closestSink);
+    else if (!nav.inverse.has(curC)) nav.set(curC, curC);
   }
-  return { fromNav, toNav };
+  return nav;
 }
 
 function overlap(

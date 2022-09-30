@@ -40,36 +40,3 @@ export const normalVec2FromAngle = (theta: number): Vec2 => [
   Math.cos(theta),
   Math.sin(theta),
 ];
-
-export type LineSegment = [Vec2, Vec2];
-
-export const lerp = ([start, end]: LineSegment, t: number) =>
-  add(start, mul(t, sub(end, start)));
-
-// reference: https://stackoverflow.com/a/6853926/5425899
-// StackOverflow answer license: CC BY-SA 4.0
-// Gives the shortest Vec2 from the point v to the line segment.
-export const subLineSegment = (v: Vec2, [start, end]: LineSegment) => {
-  const startToV = sub(v, start);
-  const startToEnd = sub(end, start);
-
-  const lengthSquared = dot(startToEnd, startToEnd);
-  const parametrizedLinePos =
-    lengthSquared === 0
-      ? -1
-      : Math.max(0, Math.min(1, dot(startToV, startToEnd) / lengthSquared));
-
-  const closestPointOnLine = lerp([start, end], parametrizedLinePos);
-  return sub(v, closestPointOnLine);
-};
-
-export const reflectAngle = (theta1: number, theta2: number): number =>
-  theta2 + subAngles(theta1, theta2);
-
-export const subAngles = (theta1: number, theta2: number): number =>
-  mod(theta2 - theta1 + Math.PI, Math.PI * 2) - Math.PI;
-
-export const mod = (a: number, n: number): number => a - Math.floor(a / n) * n;
-
-export const clamp = (min: number, n: number, max: number) =>
-  Math.max(min, Math.min(n, max));

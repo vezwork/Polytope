@@ -1,4 +1,4 @@
-import { clamp } from "./math.js";
+import { clamp } from "./math/Number.js";
 
 export function closestElementBelow<Element extends HTMLElement>(
   el: Element,
@@ -66,7 +66,7 @@ function reduceElsToClosestEl<Element extends HTMLElement>(
   }));
 
   let closestDistance = Infinity;
-  let closestEl = null;
+  let closestEl: Element | null = null;
   for (const { otherEl, otherElBounds } of otherElsWithBounds) {
     const d = distanceBetween(elBounds, otherElBounds);
     if (d < closestDistance) {

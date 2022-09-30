@@ -75,12 +75,12 @@ export class EditorElement extends HTMLElement {
 
   parentEditor(): EditorElement | null {
     // could be optimizing it by caching it against the parent element?
-    return this.parentElement.closest("[isEditor=true]");
+    return this.parentElement?.closest("[isEditor=true]") ?? null;
   }
   rootEditor() {
-    let curAncestor: EditorElement = this;
+    let curAncestor: EditorElement | null = this;
     while (true) {
-      if (curAncestor.parentEditor) curAncestor = curAncestor.parentEditor();
+      if (curAncestor?.parentEditor) curAncestor = curAncestor.parentEditor();
       else return curAncestor;
     }
   }
@@ -91,7 +91,7 @@ export class EditorElement extends HTMLElement {
   childEditors(): EditorElement[] {
     const descendents = this.descendentEditors();
     return descendents.filter(
-      (editor) => !descendents.includes(editor.parentEditor())
+      (editor) => !descendents.includes(editor.parentEditor() as EditorElement)
     );
   }
 
@@ -112,7 +112,7 @@ export class EditorElement extends HTMLElement {
     return childEditors[childEditors.indexOf(childEditor) - 1] ?? null;
   }
   // distance to entire child bounding boxes or to just `this`'s right side
-  closestSinkToPosition(position: [number, number]): EditorElement {
+  closestSinkToPosition(position: [number, number]): EditorElement | null {
     return closestElementToPosition(this, this.childEditors(), position);
   }
 
@@ -164,7 +164,10 @@ export class EditorElement extends HTMLElement {
           border-right: 2px solid black;
         }
       `;
-    this.shadowRoot.append(baseStyleEl, document.createElement("slot"));
+    (this.shadowRoot as ShadowRoot).append(
+      baseStyleEl,
+      document.createElement("slot")
+    );
 
     if (!this.hasAttribute("tabindex")) this.setAttribute("tabindex", "0"); // make tabbable by default
 
@@ -179,16 +182,19 @@ export class EditorElement extends HTMLElement {
       this.makeFocused();
     });
     this.addEventListener("keydown", (e) => {
-      if (e.key.startsWith("Arrow")) {
+      if (isArrowKey(e.key)) {
         this.isParentEditor()
-          ? this.parentOnInputArrow(e)
-          : this.leafOnInputArrow(e);
+          ? this.parentOnInputArrow(e.key)
+          : this.leafOnInputArrow(e.key);
+        e.stopPropagation();
       }
     });
   }
 
-  private parentOnInputArrow(e: KeyboardEvent) {
-    if (e.key === "ArrowLeft") {
+  private parentOnInputArrow(
+    key: "ArrowUp" | "ArrowRight" | "ArrowDown" | "ArrowLeft"
+  ) {
+    if (key === "ArrowLeft") {
       const childEditors = this.childEditors();
       const lastChildEditor = childEditors[childEditors.length - 1];
       lastChildEditor.focusFromParentEditor({
@@ -197,20 +203,20 @@ export class EditorElement extends HTMLElement {
     } else {
       this.parentEditor()?.focusFromChildEditor({
         childEditor: this,
-        direction: exitEditorDirectionFromKey(e.key),
+        direction: exitEditorDirectionFromKey(key),
         x: this.carryX ?? this.getBoundingClientRect().right,
       });
     }
-    e.stopPropagation();
   }
 
-  private leafOnInputArrow(e: KeyboardEvent) {
+  private leafOnInputArrow(
+    key: "ArrowUp" | "ArrowRight" | "ArrowDown" | "ArrowLeft"
+  ) {
     this.parentEditor()?.focusFromChildEditor({
       childEditor: this,
-      direction: exitEditorDirectionFromKey(e.key),
+      direction: exitEditorDirectionFromKey(key),
       x: this.carryX ?? this.getBoundingClientRect().right,
     });
-    e.stopPropagation();
   }
 
   carryX: number | null = null;
@@ -280,13 +286,13 @@ export class EditorElement extends HTMLElement {
       const myBound = this.getBoundingClientRect();
       const a = this.closestSinkToPosition([x, myBound.top]);
       if (a === this) this.makeFocused();
-      else a.focusFromParentEditor({ direction, x });
+      else a?.focusFromParentEditor({ direction, x });
     } else if (direction === EnterEditorDirection.down) {
       const { x } = args;
       const myBound = this.getBoundingClientRect();
       const a = this.closestSinkToPosition([x, myBound.bottom]);
       if (a === this) this.makeFocused();
-      else a.focusFromParentEditor({ direction, x });
+      else a?.focusFromParentEditor({ direction, x });
     } else if (direction === EnterEditorDirection.left)
       this.childEditors()[0].focusFromParentEditor(args);
     else if (direction === EnterEditorDirection.right) this.makeFocused();
@@ -313,16 +319,14 @@ export class EditorElement extends HTMLElement {
 customElements.define("poly-editor", EditorElement);
 
 function exitEditorDirectionFromKey(
-  key: KeyboardEvent["key"]
-): ExitEditorDirection | null {
-  return (
-    {
-      ArrowUp: ExitEditorDirection.up,
-      ArrowRight: ExitEditorDirection.right,
-      ArrowDown: ExitEditorDirection.down,
-      ArrowLeft: ExitEditorDirection.left,
-    }[key] ?? null
-  );
+  key: "ArrowUp" | "ArrowRight" | "ArrowDown" | "ArrowLeft"
+): ExitEditorDirection {
+  return {
+    ArrowUp: ExitEditorDirection.up,
+    ArrowRight: ExitEditorDirection.right,
+    ArrowDown: ExitEditorDirection.down,
+    ArrowLeft: ExitEditorDirection.left,
+  }[key];
 }
 
 function enterDirectionFromExitDirection(
@@ -334,4 +338,15 @@ function enterDirectionFromExitDirection(
     [ExitEditorDirection.down]: EnterEditorDirection.up,
     [ExitEditorDirection.left]: EnterEditorDirection.right,
   }[exitDirection];
+}
+
+function isArrowKey(
+  key: KeyboardEvent["key"]
+): key is "ArrowUp" | "ArrowRight" | "ArrowDown" | "ArrowLeft" {
+  return (
+    key === "ArrowUp" ||
+    key === "ArrowRight" ||
+    key === "ArrowDown" ||
+    key === "ArrowLeft"
+  );
 }
