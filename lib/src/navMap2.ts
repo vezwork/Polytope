@@ -1,9 +1,7 @@
-import { Line2 } from "./math/Line2.js";
 import { isPointInside, positive, XYWH } from "./math/XYWH.js";
-import { horizontalNavMaps } from "./space.js";
+import { CaretSink, horizontalNavMaps } from "./space.js";
 import { mergeAndSortLines } from "./math/Line2MergeAndSort.js";
-import { distance as dist, Vec2 } from "./math/Vec2.js";
-import { pairs } from "./Iterable.js";
+import { findIndex2D, max } from "./Arrays.js";
 
 const c = document.getElementById("c") as HTMLCanvasElement;
 const ctx = c.getContext("2d") as CanvasRenderingContext2D;
@@ -51,68 +49,26 @@ function draw() {
   if (isMouseRightDown)
     boxes = boxes.filter((box) => !isPointInside(mouse, box));
 
-  const nav = horizontalNavMaps(
-    boxes.map(([x, y, w, h]) => ({
-      top: y,
-      bottom: y + h,
-      x: x + w,
-    }))
-  );
-
   ctx.fillStyle = "red";
   for (const box of boxes) ctx.fillRect(...box);
 
-  const ls = [...nav.lines()];
-
-  const lines: Line2[] = ls.map((l) => l.map(({ top, x }) => [x, top]));
-  const mergedAndOrderedLines = mergeAndSortLines(lines);
-
-  for (const [la, lb] of pairs(mergedAndOrderedLines)) {
-    ctx.beginPath();
-    if (la.length === 0 || lb.length === 0) continue;
-    for (const p1 of la) {
-      const closest = lb.reduce(
-        (acc, p) =>
-          acc.point === null || Math.abs(p1[0] - p[0]) < acc.dist
-            ? { dist: Math.abs(p1[0] - p[0]), point: p }
-            : acc,
-        { dist: Infinity, point: null } as {
-          dist: number;
-          point: Vec2 | null;
-        }
-      );
-      if (closest.point) {
-        ctx.strokeStyle = "YellowGreen";
-        ctx.moveTo(...p1);
-        ctx.lineTo(...closest.point);
-        ctx.stroke();
-      }
+  for (const box of boxes) {
+    ctx.strokeStyle = "black";
+    const nextBox = next(box, boxes);
+    if (nextBox) {
+      ctx.beginPath();
+      ctx.moveTo(box[0], box[1]);
+      ctx.lineTo(nextBox[0], nextBox[1]);
+      ctx.stroke();
     }
-  }
-  ctx.strokeStyle = "SkyBlue";
-  for (let i = 0; i < mergedAndOrderedLines.length; i++) {
-    const line = mergedAndOrderedLines[i];
-
-    ctx.beginPath();
-    for (const point of line) {
-      ctx.lineTo(...point);
-      ctx.fillRect(...point, 3, 3);
+    ctx.strokeStyle = "YellowGreen";
+    const belowBox = below(box, boxes);
+    if (belowBox) {
+      ctx.beginPath();
+      ctx.moveTo(box[0], box[1]);
+      ctx.lineTo(belowBox[0], belowBox[1]);
+      ctx.stroke();
     }
-    if (line.length > 0) {
-      ctx.fillText(String(i), ...(line.at(0) as Vec2));
-    }
-    ctx.stroke();
-  }
-  ctx.strokeStyle = "black";
-
-  for (const line of lines) {
-    ctx.beginPath();
-    for (const point of line) {
-      ctx.lineTo(...point);
-      ctx.fillRect(...point, 3, 3);
-    }
-    if (line.length > 0) ctx.fillRect(...(line.at(-1) as Vec2), 5, 5);
-    ctx.stroke();
   }
 
   if (curCreateBox) ctx.fillRect(...curCreateBox);
@@ -122,3 +78,43 @@ function draw() {
   requestAnimationFrame(draw);
 }
 requestAnimationFrame(draw);
+
+type AnnotatedCaretSink = [number, number] & CaretSink & { data: XYWH };
+
+// I need monads?
+function next(box: XYWH, boxes: XYWH[]): XYWH | null {
+  const { lines, index } = linesAndIndex(box, boxes);
+
+  return lines[index[0]]?.[index[1] + 1]?.data ?? null;
+}
+
+function below(box: XYWH, boxes: XYWH[]): XYWH | null {
+  const { lines, index } = linesAndIndex(box, boxes);
+
+  const nextLine = lines[index[0] + 1];
+  return (
+    max(nextLine, (caretSink) => Math.abs(box[0] - caretSink[0]))?.data ?? null
+  );
+}
+
+function linesAndIndex(
+  box: XYWH,
+  boxes: XYWH[]
+): { lines: AnnotatedCaretSink[][]; index: [number, number] } {
+  const caretSinks: AnnotatedCaretSink[] = boxes.map((box) =>
+    // note that the tuple must be the first arg so that the resulting object has array proto
+    Object.assign([box[0] + box[2], box[1]] as [number, number], {
+      top: box[1],
+      bottom: box[1] + box[3],
+      x: box[0] + box[2],
+      data: box,
+    })
+  );
+
+  const nav = horizontalNavMaps(caretSinks);
+  const lines = mergeAndSortLines([...nav.lines()]);
+
+  const index = findIndex2D(lines, (p) => p.data === box);
+
+  return { lines, index };
+}

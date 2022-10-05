@@ -3,19 +3,19 @@ import { isAbove, isRight, Line2, segmentBetween } from "./Line2.js";
 import { Vec2 } from "./Vec2.js";
 
 // assumes lines' points are monotonically increasing in the x coord
-export function mergeAndSortLines(lines: Line2[]): Line2[] {
+export function mergeAndSortLines<T extends Vec2>(lines: T[][]): T[][] {
   let newLines = [...lines];
   const aboveMap = EndoSetMapWithReverse.FromBinaryRelation(newLines, isAbove);
-  const areTransitivelyBeside = (l1: Line2, l2: Line2): boolean =>
+  const areTransitivelyBeside = (l1: T[], l2: T[]): boolean =>
     !aboveMap.hasPathBetween(l1, l2) && !aboveMap.hasPathBetween(l2, l1);
 
   const cands = orderedTransitivelyBesideLines(lines, areTransitivelyBeside);
 
   // doneLeft and doneRight keep track of what ends of lines have already been merged (and should be ignored).
-  const doneLeft: Line2[] = [];
-  const doneRight: Line2[] = [];
+  const doneLeft: T[][] = [];
+  const doneRight: T[][] = [];
   // mergeMap keeps track of the lines that lines have been merged into.
-  const mergeMap = new Map<Line2, Line2>();
+  const mergeMap = new Map<T[], T[]>();
   for (const { left, right } of cands) {
     if (!doneLeft.includes(left) && !doneRight.includes(right)) {
       const mLeft = mergeMap.get(left) ?? left;
@@ -62,12 +62,12 @@ export function mergeAndSortLines(lines: Line2[]): Line2[] {
 const xBiasedDist = ([x1, y1], [x2, y2]) =>
   Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 4);
 
-function orderedTransitivelyBesideLines(
-  lines: Line2[],
-  areTransitivelyBeside: (l1: Line2, l2: Line2) => boolean
-): { left: Line2; right: Line2; distance: number }[] {
+function orderedTransitivelyBesideLines<T extends Vec2>(
+  lines: T[][],
+  areTransitivelyBeside: (l1: T[], l2: T[]) => boolean
+): { left: T[]; right: T[]; distance: number }[] {
   // for all set-pairs of lines if mergable(left,right) then CANDS.append [{ left: Line, right: Line, dist: Number }]
-  const cands: { left: Line2; right: Line2; distance: number }[] = [];
+  const cands: { left: T[]; right: T[]; distance: number }[] = [];
   for (let i = 0; i < lines.length; i++) {
     for (let j = i; j < lines.length; j++) {
       const l = lines[i];

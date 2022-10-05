@@ -1,7 +1,6 @@
 // https://codepen.io/vezwork/pen/XWZLBVr?editors=1010
 
 import { EndoMapWithInverse } from "./data.js";
-import { skip } from "./Iterable.js";
 
 /**
  * https://developer.mozilla.org/en-US/docs/Web/CSS/CSSOM_View/Coordinate_systems#page
@@ -20,27 +19,24 @@ export type CaretSink = {
 
 /**
  * Given caret sinks, returns maps represented an undirected graph
- * (specifically a linear forest https://en.wikipedia.org/wiki/Linear_forest)
+ * (almost a linear forest https://en.wikipedia.org/wiki/Linear_forest, except allowing self loops)
  * where each caret sink's neighbors vertically (but not horizontally!) overlap with it.
  *
  * adapted from: codepen.io/vezwork/pen/KKQjQVW
  */
-export function horizontalNavMaps(
-  caretSinks: CaretSink[]
-): EndoMapWithInverse<CaretSink> {
-  let nav = new EndoMapWithInverse<CaretSink>();
+export function horizontalNavMaps<T extends CaretSink>(
+  caretSinks: T[]
+): EndoMapWithInverse<T> {
+  let nav = new EndoMapWithInverse<T>();
 
   for (const curC of caretSinks.sort((c1, c2) => c1.top - c2.top)) {
-    const closestSink = caretSinks.reduce(
-      (bestC: null | CaretSink, c: CaretSink) => {
-        const isRight = c.x > curC.x;
-        const isVerticalOverlapped =
-          overlap([c.top, c.bottom], [curC.top, curC.bottom]) > 0;
-        const isClosest = bestC === null || c.x < bestC.x;
-        return isRight && isVerticalOverlapped && isClosest ? c : bestC;
-      },
-      null
-    );
+    const closestSink = caretSinks.reduce((bestC: null | T, c: T) => {
+      const isRight = c.x > curC.x;
+      const isVerticalOverlapped =
+        overlap([c.top, c.bottom], [curC.top, curC.bottom]) > 0;
+      const isClosest = bestC === null || c.x < bestC.x;
+      return isRight && isVerticalOverlapped && isClosest ? c : bestC;
+    }, null);
 
     if (closestSink !== null) nav.set(curC, closestSink);
     else if (!nav.inverse.has(curC)) nav.set(curC, curC);
