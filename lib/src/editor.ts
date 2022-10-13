@@ -1,8 +1,7 @@
-import {
-  closestElementAbove,
-  closestElementBelow,
-  closestElementToPosition,
-} from "./closestElement.js";
+import { findIndex2D, max, min } from "./Arrays.js";
+import { closestElementToPosition } from "./closestElement.js";
+import { mergeAndSortLines } from "./math/Line2MergeAndSort.js";
+import { CaretSink, horizontalNavMaps } from "./space.js";
 
 /**
  * ideas:
@@ -97,19 +96,17 @@ export class EditorElement extends HTMLElement {
 
   // spatial vertical nav
   childAbove(childEditor: EditorElement): EditorElement | null {
-    return closestElementAbove(childEditor, this.childEditors(), this.carryX);
+    return above(childEditor, this.childEditors(), this.carryX);
   }
   childBelow(childEditor: EditorElement): EditorElement | null {
-    return closestElementBelow(childEditor, this.childEditors(), this.carryX);
+    return below(childEditor, this.childEditors(), this.carryX);
   }
   // html tree ordered horizontal nav
   childAfter(childEditor: EditorElement): EditorElement | null {
-    const childEditors = this.childEditors();
-    return childEditors[childEditors.indexOf(childEditor) + 1] ?? null;
+    return after(childEditor, this.childEditors());
   }
   childBefore(childEditor: EditorElement): EditorElement | null {
-    const childEditors = this.childEditors();
-    return childEditors[childEditors.indexOf(childEditor) - 1] ?? null;
+    return before(childEditor, this.childEditors());
   }
   // distance to entire child bounding boxes or to just `this`'s right side
   closestSinkToPosition(position: [number, number]): EditorElement | null {
@@ -222,7 +219,6 @@ export class EditorElement extends HTMLElement {
   carryX: number | null = null;
 
   focusFromChildEditor(args: FocusFromChildEditorArgs) {
-    console.debug("focusFromChildEditor", this, args);
     const { childEditor, direction } = args;
 
     const childEditors = this.childEditors();
@@ -238,12 +234,15 @@ export class EditorElement extends HTMLElement {
       this.carryX = args.x;
     }
 
-    const toChild = {
-      [ExitEditorDirection.up]: this.childAbove(childEditor),
-      [ExitEditorDirection.right]: this.childAfter(childEditor),
-      [ExitEditorDirection.down]: this.childBelow(childEditor),
-      [ExitEditorDirection.left]: this.childBefore(childEditor),
-    }[direction];
+    let toChild: EditorElement | null = null;
+    if (ExitEditorDirection.up === direction)
+      toChild = this.childAbove(childEditor);
+    if (ExitEditorDirection.right === direction)
+      toChild = this.childAfter(childEditor);
+    if (ExitEditorDirection.down === direction)
+      toChild = this.childBelow(childEditor);
+    if (ExitEditorDirection.left === direction)
+      toChild = this.childBefore(childEditor);
 
     if (toChild) {
       toChild.focusFromParentEditor({
@@ -264,7 +263,6 @@ export class EditorElement extends HTMLElement {
   }
 
   focusFromParentEditor(args: FocusFromParentEditorArgs) {
-    console.debug("focusFromParentEditor", this, args);
     if (
       args.direction === EnterEditorDirection.up ||
       args.direction === EnterEditorDirection.down
@@ -350,3 +348,105 @@ function isArrowKey(
     key === "ArrowLeft"
   );
 }
+
+type AnnotatedCaretSink = [number, number] &
+  CaretSink & { data: EditorElement };
+
+function after(
+  box: EditorElement,
+  boxes: EditorElement[]
+): EditorElement | null {
+  const {
+    lines,
+    index: [x, y],
+  } = linesAndIndex(box, boxes);
+  return lines[x]?.[y + 1]?.data ?? lines[x + 1]?.[0]?.data ?? null;
+}
+
+function below(
+  box: EditorElement,
+  boxes: EditorElement[],
+  carryX: number | null
+): EditorElement | null {
+  const { lines, index } = linesAndIndex(box, boxes);
+  const nextLine = lines[index[0] + 1] ?? [];
+  return (
+    min(nextLine, ({ data }) =>
+      carryX ? numXDist(carryX, data) : xDist(box, data)
+    )?.data ?? null
+  );
+}
+
+function before(
+  box: EditorElement,
+  boxes: EditorElement[]
+): EditorElement | null {
+  const {
+    lines,
+    index: [x, y],
+  } = linesAndIndex(box, boxes);
+  return (
+    lines[x]?.[y - 1]?.data ??
+    lines[x - 1]?.[lines[x - 1]?.length - 1]?.data ??
+    null
+  );
+}
+
+function above(
+  box: EditorElement,
+  boxes: EditorElement[],
+  carryX: number | null
+): EditorElement | null {
+  const { lines, index } = linesAndIndex(box, boxes);
+  const prevLine = lines[index[0] - 1] ?? [];
+  return (
+    min(prevLine, ({ data }) =>
+      carryX ? numXDist(carryX, data) : xDist(box, data)
+    )?.data ?? null
+  );
+}
+
+function numXDist(n: number, el: HTMLElement): number {
+  const a = getBoundingClientRect(el);
+  if (n > a.left && n < a.right) return 0;
+  if (n >= a.right) return n - a.right;
+  if (n <= a.left) return a.left - n;
+  return 0;
+}
+
+function xDist(el1: HTMLElement, el2: HTMLElement): number {
+  const a = getBoundingClientRect(el1);
+  const b = getBoundingClientRect(el2);
+  if (a.left > b.left && a.right < b.right) return 0;
+  if (b.left > a.left && b.right < a.right) return 0;
+  if (a.left > b.right) return a.left - b.right;
+  if (b.left < a.right) return b.left - a.right;
+  return 0;
+}
+
+function linesAndIndex(
+  box: EditorElement,
+  boxes: EditorElement[]
+): { lines: AnnotatedCaretSink[][]; index: [number, number] } {
+  const caretSinks: AnnotatedCaretSink[] = boxes
+    .map((box) => ({ rect: getBoundingClientRect(box), data: box }))
+    .map(({ rect, data }) =>
+      // note that the tuple must be the first arg so that the resulting object has array proto
+      Object.assign([rect.x, rect.y] as [number, number], rect, { data })
+    );
+
+  const nav = horizontalNavMaps(caretSinks);
+  const lines = mergeAndSortLines([...nav.lines()]);
+  console.log("DEEBUUG", nav, lines);
+
+  const index = findIndex2D(lines, (p) => p.data === box);
+
+  return { lines, index };
+}
+
+// necessary because `Object.assign` does not see DOMRect properties.
+const getBoundingClientRect = (element: HTMLElement) => {
+  const { top, right, bottom, left, width, height, x, y } =
+    element.getBoundingClientRect();
+  return { top, right, bottom, left, width, height, x, y };
+};

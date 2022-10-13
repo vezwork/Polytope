@@ -1,5 +1,5 @@
 import { EndoSetMapWithReverse } from "../data.js";
-import { isAbove, isRight, Line2, segmentBetween } from "./Line2.js";
+import { isAbove, isRight, segmentBetween } from "./Line2.js";
 import { Vec2 } from "./Vec2.js";
 
 // assumes lines' points are monotonically increasing in the x coord

@@ -12,14 +12,20 @@ export function findIndex2D<T>(
   );
 }
 
+// finds the maximum valued element
 export function max<T>(els: T[], valueOf: (el: T) => number) {
   return sortFirst(els, (el1, el2) => valueOf(el1) - valueOf(el2));
 }
 
+export function min<T>(els: T[], valueOf: (el: T) => number) {
+  return sortFirst(els, (el1, el2) => valueOf(el2) - valueOf(el1));
+}
+
 // the same as sort, but just takes the first element. Linear time.
+// 0 represents "equal", >0 means el1 > el2, <0 means el2 > el2
 export function sortFirst<T>(els: T[], compare: (el1: T, el2: T) => number) {
   return els.reduce(
-    (acc, el: T) => (acc === null || compare(el, acc) ? el : acc),
+    (acc, el: T) => (acc === null || compare(el, acc) > 0 ? el : acc),
     null as null | T
   );
 }
