@@ -1,10 +1,47 @@
 import { pairs } from "../Iterable.js";
-import { Vec2, add, mul, sub, dot } from "./Vec2.js";
+import { Vec2, add, mul, sub, dot, proj } from "./Vec2.js";
 
 export type Line2 = Vec2[];
 
-export const lerp = ([start, end]: [Vec2, Vec2], t: number) =>
-  add(start, mul(t, sub(end, start)));
+export const lerp =
+  ([start, end]: [Vec2, Vec2]) =>
+  (t: number) =>
+    add(start, mul(t, sub(end, start)));
+
+/**
+ * e.g.
+ * ```
+ * const pFromN = lerp(lineSegment)
+ * const nFromP = inverseLerp(lineSegment)
+ * nFromP(pFromN(0.5)) === 0.5
+ * ```
+ *
+ * For `p` not on the segment, gives `t` such that `distance(p, lerp(seg)(t))` is minimized (I think).
+ *
+ * ref: https://stackoverflow.com/a/1501725/5425899 CC BY-SA 4.0
+ *
+ */
+export const reverseLerp =
+  ([start, end]: [Vec2, Vec2]) =>
+  (p: Vec2): number =>
+    dot(sub(p, start), sub(end, start));
+
+export const segProj =
+  (seg: [Vec2, Vec2]) =>
+  (p: Vec2): Vec2 => {
+    const r = segRight(seg);
+    const l = segLeft(seg);
+    if (p[0] < r[0]) return r;
+    if (p[0] > l[0]) return l;
+    const a = r[0] - l[0];
+    const b = p[0] - l[0];
+    const t = b / a;
+    return lerp([l, r])(t);
+  };
+
+export const reverse = ([p1, p2]: [Vec2, Vec2]): [Vec2, Vec2] => [p2, p1];
+export const segLeft = ([p1, p2]: [Vec2, Vec2]) => (p1[0] > p2[0] ? p1 : p2);
+export const segRight = ([p1, p2]: [Vec2, Vec2]) => (p1[0] < p2[0] ? p1 : p2);
 
 // reference: https://stackoverflow.com/a/6853926/5425899
 // StackOverflow answer license: CC BY-SA 4.0
@@ -19,12 +56,13 @@ export const subLineSegment = (v: Vec2, [start, end]: [Vec2, Vec2]) => {
       ? -1
       : Math.max(0, Math.min(1, dot(startToV, startToEnd) / lengthSquared));
 
-  const closestPointOnLine = lerp([start, end], parametrizedLinePos);
+  const closestPointOnLine = lerp([start, end])(parametrizedLinePos);
   return sub(v, closestPointOnLine);
 };
 
 // warn: may fail for 1 and 0 point lines?
 export function isAbove(l1: Line2, l2: Line2): boolean {
+  if (l1.length === 1 && l2.length === 1) return l1[0][1] < l2[0][1];
   // find point p in line 1 that is x-between two points in line 2
   for (const p of l1) {
     for (const l2Seg of pairs(l2)) {

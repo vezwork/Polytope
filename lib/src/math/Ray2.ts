@@ -19,7 +19,7 @@ type Box = {
 };
 
 // https://tavianator.com/2011/ray_box.html
-export const intersection = (b, r) => {
+export const intersection = (b: Box, r: Ray) => {
   const tx1 = (b.left - r.origin.x) / r.dir.x;
   const tx2 = (b.right - r.origin.x) / r.dir.x;
 

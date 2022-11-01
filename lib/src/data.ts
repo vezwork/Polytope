@@ -82,6 +82,21 @@ type PartialBinaryRelation<T> = (a: T, b: T) => boolean | null;
 
 // Endo is shorted for "endomorphic" which means the underlying SetMap maps from a type T to itself
 export class EndoSetMapWithReverse<T> extends SetMapWithReverse<T, T> {
+  _reverse: EndoSetMapWithReverse<T>;
+  get reverse() {
+    return this._reverse;
+  }
+
+  constructor(...args: SetMapWithReverseArgs<T, T>) {
+    if (args?.[0]?.[REVERSE_KEY]) { // constructing the reverse
+      super();
+      this._reverse = args[0][REVERSE_KEY];
+    } else { // constructing the non-reverse
+      super(...(args as ConstructorParameters<typeof SetMap<T, T>>));
+      this._reverse = new EndoSetMapWithReverse<T>({ [REVERSE_KEY]: this })
+    }
+  }
+
   *traverseBreadthFirst(start: T) {
     const toVisit = [start];
     const visited = new Set();
@@ -111,6 +126,10 @@ export class EndoSetMapWithReverse<T> extends SetMapWithReverse<T, T> {
     for (const reachableKey of this.traverseBreadthFirst(key))
       if (reachableKey === value) return true
     return false
+  }
+
+  hasPathOrReversePathBetween(key: T, value: T) {
+    return this.hasPathBetween(key, value) || this.reverse.hasPathBetween(key, value)
   }
 
   merge(resultKey: T, ...mergeKeys: T[]) {

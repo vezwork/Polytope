@@ -444,6 +444,13 @@ function linesAndIndex(
   return { lines, index };
 }
 
+// limitations:
+// - horizontalNavMaps adds an unecessary pre-step to line calculation.
+//   With the right box distance definition, mergeAndSortLines could do horizontalNavMaps' job.
+// - overlapping boxes may not be handles properly
+// - mergeAndSortLines uses some line functions that have not been thoroughly tested for 0 and 1 point lines.
+// - only the left side of boxes are taken into account in mergeAndSortLines potentially causing bad results when boxes have non-negligible width.
+
 // necessary because `Object.assign` does not see DOMRect properties.
 const getBoundingClientRect = (element: HTMLElement) => {
   const { top, right, bottom, left, width, height, x, y } =

@@ -1,15 +1,15 @@
 import { EndoSetMapWithReverse } from "../data.js";
-import { isAbove, isRight, segmentBetween } from "./Line2.js";
+import { isAbove, isRight } from "./Line2.js";
 import { Vec2 } from "./Vec2.js";
 
 // assumes lines' points are monotonically increasing in the x coord
 export function mergeAndSortLines<T extends Vec2>(lines: T[][]): T[][] {
   let newLines = [...lines];
   const aboveMap = EndoSetMapWithReverse.FromBinaryRelation(newLines, isAbove);
-  const areTransitivelyBeside = (l1: T[], l2: T[]): boolean =>
-    !aboveMap.hasPathBetween(l1, l2) && !aboveMap.hasPathBetween(l2, l1);
 
-  const cands = orderedTransitivelyBesideLines(lines, areTransitivelyBeside);
+  const cands = orderedTransitivelyBesideLines(lines, (l1, l2) =>
+    aboveMap.hasPathOrReversePathBetween(l1, l2)
+  );
 
   // doneLeft and doneRight keep track of what ends of lines have already been merged (and should be ignored).
   const doneLeft: T[][] = [];
@@ -21,7 +21,7 @@ export function mergeAndSortLines<T extends Vec2>(lines: T[][]): T[][] {
       const mLeft = mergeMap.get(left) ?? left;
       const mRight = mergeMap.get(right) ?? right;
 
-      if (!areTransitivelyBeside(mLeft, mRight)) continue;
+      if (aboveMap.hasPathOrReversePathBetween(mLeft, mRight)) continue;
 
       // MERGE
       // so that the merged line is above (in `aboveMap`) the lines that either of the merged lines were above.
@@ -29,7 +29,7 @@ export function mergeAndSortLines<T extends Vec2>(lines: T[][]): T[][] {
       aboveMap.merge(mergeResult, mLeft, mRight);
       // After merging, we also need to add the `isAbove(mergeSegment, ol)` and vice-versa
       // while respecting anti-symmetry i.e. `if (isAbove(mergeSegment, ol) && !above.get(ol)?.has(mergeSegment))`
-      const mergeSegment = segmentBetween(mLeft, mRight) as [Vec2, Vec2];
+      const mergeSegment = [mLeft.at(-1), mRight.at(0)] as [Vec2, Vec2];
       for (const ol of newLines) {
         if (isAbove(mergeSegment, ol) && !aboveMap.get(ol)?.has(mergeResult))
           aboveMap.add(mergeResult, ol);
@@ -64,21 +64,16 @@ const xBiasedDist = ([x1, y1], [x2, y2]) =>
 
 function orderedTransitivelyBesideLines<T extends Vec2>(
   lines: T[][],
-  areTransitivelyBeside: (l1: T[], l2: T[]) => boolean
+  areTransitivelyAbove: (l1: T[], l2: T[]) => boolean
 ): { left: T[]; right: T[]; distance: number }[] {
-  // for all set-pairs of lines if mergable(left,right) then CANDS.append [{ left: Line, right: Line, dist: Number }]
   const cands: { left: T[]; right: T[]; distance: number }[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    for (let j = i; j < lines.length; j++) {
-      const l = lines[i];
-      const ol = lines[j];
-
+  for (const l of lines) {
+    for (const ol of lines) {
       if (l.length === 0 || ol.length === 0) continue;
-      if (!areTransitivelyBeside(l, ol)) continue;
+      if (areTransitivelyAbove(l, ol)) continue;
 
       const [left, right] = isRight(l, ol) ? [l, ol] : [ol, l];
-      const [lp, rp] = segmentBetween(left, right) as [Vec2, Vec2];
-      const distance = xBiasedDist(lp, rp);
+      const distance = xBiasedDist(left.at(-1) as Vec2, right.at(0) as Vec2);
       cands.push({ left, right, distance });
     }
   }

@@ -29,7 +29,10 @@ export const angleBetween = (v1: Vec2, v2: Vec2): number =>
 
 export const distance = (v1: Vec2, v2: Vec2): number => length(sub(v1, v2));
 
-export const round = (v: Vec2) => [Math.round(v[0]), Math.round(v[1])];
+export const round = (v: Vec2) => v.map(Math.round);
+
+export const proj = (on: Vec2) => (v: Vec2) =>
+  mul(dot(v, on) / dot(on, on), on); // => mul(dot(v, normalize(on)), normalize(on))
 
 // reference: https://en.wikipedia.org/wiki/Rotation_matrix
 export const rotate = (v: Vec2, theta: number): Vec2 => [

@@ -1,14 +1,16 @@
 import { isPointInside, positive, XYWH } from "./math/XYWH.js";
-import { CaretSink, horizontalNavMaps } from "./space.js";
-import { mergeAndSortLines } from "./math/Line2MergeAndSort.js";
-import { findIndex2D, max } from "./Arrays.js";
+import { findIndex2D, min } from "./Arrays.js";
+import { makeMergeAndSortLines } from "./math/LineMerge.js";
+import { make2DLineFunctions } from "./math/LineT.js";
+import { axisAlignedIntervalDist } from "./math/NumberInterval.js";
+import { segProj } from "./math/Line2.js";
+import { EndoSetMapWithReverse } from "./data.js";
 
 const c = document.getElementById("c") as HTMLCanvasElement;
 const ctx = c.getContext("2d") as CanvasRenderingContext2D;
 
 const mouse: [number, number] = [0, 0];
 let isMouseDown = false;
-let isMouseRightDown = false;
 
 let boxes: XYWH[] = [];
 let curCreateBox: XYWH | null = null;
@@ -21,11 +23,9 @@ c.addEventListener("mousemove", (e) => {
 });
 c.addEventListener("mousedown", (e) => {
   if (e.button === 0) isMouseDown = true;
-  else isMouseRightDown = true;
 });
 c.addEventListener("mouseup", (e) => {
   if (e.button === 0) isMouseDown = false;
-  else isMouseRightDown = false;
 });
 
 function draw() {
@@ -45,10 +45,6 @@ function draw() {
       curCreateBox = null;
     }
   }
-
-  if (isMouseRightDown)
-    boxes = boxes.filter((box) => !isPointInside(mouse, box));
-
   ctx.fillStyle = "red";
   for (const box of boxes) ctx.fillRect(...box);
 
@@ -58,7 +54,7 @@ function draw() {
     if (nextBox) {
       ctx.beginPath();
       ctx.moveTo(box[0], box[1]);
-      ctx.lineTo(nextBox[0], nextBox[1]);
+      ctx.lineTo(top(nextBox)[0], top(nextBox)[1]);
       ctx.stroke();
     }
     ctx.strokeStyle = "YellowGreen";
@@ -66,7 +62,7 @@ function draw() {
     if (belowBox) {
       ctx.beginPath();
       ctx.moveTo(box[0], box[1]);
-      ctx.lineTo(belowBox[0], belowBox[1]);
+      ctx.lineTo(top(belowBox)[0], top(belowBox)[1]);
       ctx.stroke();
     }
   }
@@ -79,40 +75,79 @@ function draw() {
 }
 requestAnimationFrame(draw);
 
-type AnnotatedCaretSink = [number, number] & CaretSink & { data: XYWH };
+type YInterval = {
+  n: number;
+  interval: [number, number];
+  data?: XYWH;
+};
 
-// I need monads?
-function next(box: XYWH, boxes: XYWH[]): XYWH | null {
+function next(box: XYWH, boxes: XYWH[]): YInterval | null {
   const { lines, index } = linesAndIndex(box, boxes);
 
-  return lines[index[0]]?.[index[1] + 1]?.data ?? null;
+  return lines[index[0]]?.[index[1] + 2] ?? null;
 }
 
-function below(box: XYWH, boxes: XYWH[]): XYWH | null {
+function below(box: XYWH, boxes: XYWH[]): YInterval | null {
   const { lines, index } = linesAndIndex(box, boxes);
 
-  const nextLine = lines[index[0] + 1];
-  return (
-    max(nextLine, (caretSink) => Math.abs(box[0] - caretSink[0]))?.data ?? null
-  );
+  const nextLine = lines[index[0] + 1] ?? [];
+  return min(nextLine, (caretSink) => Math.abs(box[0] - caretSink.n)) ?? null;
+}
+
+const top = ({ n, interval: [top, _] }: YInterval): [number, number] => [
+  n,
+  top,
+]; // assuming interval[0] is top, which is not enforced
+const yIntervalFromTop = ([n, top]: [number, number]): YInterval => ({
+  n,
+  interval: [top, top],
+});
+
+// const vec2FromYInterval = top
+// const yIntervalFromVec2 = yIntervalFromTop
+// const line2FromYIntervals = (yIntervals: YInterval[]) => yIntervals.map(vec2FromYInterval)
+// const yIntervalsFromLine2 = (line2: [number, number][]) => line2.map(yIntervalFromVec2)
+
+// what if a function could take an object of a type or any type equivalent to it?
+// equivalences between objects are equivalent to typed constructions of functions are equivalent to objects fulfilling the same contracts.
+// what if functions could be curried with arguments in any order?
+
+const { mergeAndSort, sortTransitivelyBeside, isAbove } =
+  make2DLineFunctions<YInterval>({
+    dist: axisAlignedIntervalDist,
+    xProj:
+      ([p1, p2]) =>
+      (p) =>
+        yIntervalFromTop(segProj([top(p1), top(p2)])(top(p))),
+    isPointLeft: (p1) => (p2) => p1.n < p2.n,
+    isPointBelow: (p1) => (p2) => top(p1)[1] > top(p2)[1],
+  }); // TODO make x-biased axisAlignedIntervalDist
+
+function leftYIntervalFromBox(box: XYWH): YInterval {
+  return {
+    interval: [box[1], box[1] + box[3]],
+    n: box[0],
+    data: box,
+  };
+}
+function rightYIntervalFromBox(box: XYWH): YInterval {
+  return {
+    interval: [box[1], box[1] + box[3]],
+    n: box[0] + box[2],
+    data: box,
+  };
 }
 
 function linesAndIndex(
   box: XYWH,
   boxes: XYWH[]
-): { lines: AnnotatedCaretSink[][]; index: [number, number] } {
-  const caretSinks: AnnotatedCaretSink[] = boxes.map((box) =>
-    // note that the tuple must be the first arg so that the resulting object has array proto
-    Object.assign([box[0] + box[2], box[1]] as [number, number], {
-      top: box[1],
-      bottom: box[1] + box[3],
-      x: box[0] + box[2],
-      data: box,
-    })
-  );
+): { lines: YInterval[][]; index: [number, number] } {
+  const caretSinks = boxes.map((box) => [
+    leftYIntervalFromBox(box),
+    rightYIntervalFromBox(box),
+  ]);
 
-  const nav = horizontalNavMaps(caretSinks);
-  const lines = mergeAndSortLines([...nav.lines()]);
+  const lines = mergeAndSort(caretSinks);
 
   const index = findIndex2D(lines, (p) => p.data === box);
 

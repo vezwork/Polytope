@@ -1,5 +1,5 @@
 import { clamp } from "./Number.js";
-import { angleOf, Vec2, distance as dist } from "./Vec2.js";
+import { Vec2 } from "./Vec2.js";
 
 export type XYWH = [number, number, number, number];
 
