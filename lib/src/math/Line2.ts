@@ -1,45 +1,43 @@
 import { pairs } from "../Iterable.js";
-import { Vec2, add, mul, sub, dot, proj } from "./Vec2.js";
+import { clamp } from "./Number.js";
+import { Vec2, add, mul, sub, dot, basisProj } from "./Vec2.js";
 
 export type Line2 = Vec2[];
 
+// can be thought of as a lens `lens(vecInSeg)(seg)(rMul(t))`
 export const lerp =
   ([start, end]: [Vec2, Vec2]) =>
   (t: number) =>
     add(start, mul(t, sub(end, start)));
 
+export const boundedLerp = (seg: [Vec2, Vec2]) => (t: number) =>
+  lerp(seg)(clamp(0, t, 1));
+
 /**
  * e.g.
  * ```
  * const pFromN = lerp(lineSegment)
- * const nFromP = inverseLerp(lineSegment)
+ * const nFromP = coLerp(lineSegment)
  * nFromP(pFromN(0.5)) === 0.5
  * ```
  *
- * For `p` not on the segment, gives `t` such that `distance(p, lerp(seg)(t))` is minimized (I think).
- *
- * ref: https://stackoverflow.com/a/1501725/5425899 CC BY-SA 4.0
- *
+ * For `p` not on the segment, gives `t` such that `distance(p, lerp(seg)(t))` is minimized.
  */
-export const reverseLerp =
+export const coLerp =
   ([start, end]: [Vec2, Vec2]) =>
   (p: Vec2): number =>
-    dot(sub(p, start), sub(end, start));
+    basisProj(sub(end, start))(sub(p, start));
 
-export const segProj =
+// can be thought of as some sort of composed lens? `lens([v, p], [xInVec, xInVec], ([x1, x2]) => x1 === 0 ? 0 : x2/x1)`
+const thing =
+  (v: Vec2) =>
+  (p: Vec2): number =>
+    v[0] === 0 ? 0 : p[0] / v[0];
+export const segXProj =
   (seg: [Vec2, Vec2]) =>
-  (p: Vec2): Vec2 => {
-    const r = segRight(seg);
-    const l = segLeft(seg);
-    if (p[0] < r[0]) return r;
-    if (p[0] > l[0]) return l;
-    const a = r[0] - l[0];
-    const b = p[0] - l[0];
-    const t = b / a;
-    return lerp([l, r])(t);
-  };
+  (p: Vec2): Vec2 =>
+    boundedLerp(seg)(thing(sub(seg[1], seg[0]))(sub(p, seg[0])));
 
-export const reverse = ([p1, p2]: [Vec2, Vec2]): [Vec2, Vec2] => [p2, p1];
 export const segLeft = ([p1, p2]: [Vec2, Vec2]) => (p1[0] > p2[0] ? p1 : p2);
 export const segRight = ([p1, p2]: [Vec2, Vec2]) => (p1[0] < p2[0] ? p1 : p2);
 

@@ -1,4 +1,4 @@
-import { segProj } from "./math/Line2.js";
+import { segXProj } from "./math/Line2.js";
 import { Vec2 } from "./math/Vec2.js";
 
 const c = document.getElementById("c") as HTMLCanvasElement;
@@ -28,7 +28,7 @@ function draw() {
   ctx.stroke();
 
   ctx.fillStyle = "blue";
-  ctx.fillRect(...segProj(seg)(mouse), 10, 10);
+  ctx.fillRect(...segXProj(seg)(mouse), 10, 10);
 
   requestAnimationFrame(draw);
 }

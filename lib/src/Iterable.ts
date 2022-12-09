@@ -40,10 +40,10 @@ export const some = function (iterable, func) {
   }
   return false;
 };
-export const withIndex = function* (iterable) {
+export const withIndex = function* <T>(iterable: Iterable<T>) {
   let i = 0;
   for (const item of iterable) {
-    yield [item, i];
+    yield [item, i] as [T, number];
     i++;
   }
 };

@@ -1,10 +1,13 @@
-import { isPointInside, positive, XYWH } from "./math/XYWH.js";
+import { positive, XYWH } from "./math/XYWH.js";
 import { findIndex2D, min } from "./Arrays.js";
-import { makeMergeAndSortLines } from "./math/LineMerge.js";
 import { make2DLineFunctions } from "./math/LineT.js";
-import { axisAlignedIntervalDist } from "./math/NumberInterval.js";
-import { segProj } from "./math/Line2.js";
-import { EndoSetMapWithReverse } from "./data.js";
+import {
+  axisAlignedIntervalDist,
+  seperatingInterval,
+} from "./math/NumberInterval.js";
+import { segXProj } from "./math/Line2.js";
+import { add } from "./math/Vec2.js";
+import { withIndex } from "./Iterable.js";
 
 const c = document.getElementById("c") as HTMLCanvasElement;
 const ctx = c.getContext("2d") as CanvasRenderingContext2D;
@@ -28,6 +31,33 @@ c.addEventListener("mouseup", (e) => {
   if (e.button === 0) isMouseDown = false;
 });
 
+function drawBox(box: XYWH) {
+  ctx.fillStyle = "black";
+  ctx.strokeStyle = "black";
+  ctx.fillRect(...box);
+
+  // const PAD = 5;
+  // const topLeft = add([box[0], box[1]], [-PAD, -PAD]);
+  // const topRight = add([box[0] + box[2], box[1]], [PAD, -PAD]);
+  // const bottomLeft = add([box[0], box[1] + box[3]], [-PAD, PAD]);
+  // const bottomRight = add([box[0] + box[2], box[1] + box[3]], [PAD, PAD]);
+
+  // ctx.beginPath();
+  // ctx.moveTo(...topLeft);
+  // ctx.lineTo(...topRight);
+  // if (!isOpenLeft) {
+  //   ctx.moveTo(...topRight);
+  //   ctx.lineTo(...bottomRight);
+  // }
+  // ctx.moveTo(...bottomRight);
+  // ctx.lineTo(...bottomLeft);
+  // if (!isOpenRight) {
+  //   ctx.moveTo(...bottomLeft);
+  //   ctx.lineTo(...topLeft);
+  // }
+  // ctx.stroke();
+}
+
 function draw() {
   ctx.clearRect(0, 0, c.width, c.height);
 
@@ -45,27 +75,57 @@ function draw() {
       curCreateBox = null;
     }
   }
-  ctx.fillStyle = "red";
-  for (const box of boxes) ctx.fillRect(...box);
 
-  for (const box of boxes) {
-    ctx.strokeStyle = "black";
-    const nextBox = next(box, boxes);
-    if (nextBox) {
+  const caretSinks = boxes.map((box) => [
+    leftYIntervalFromBox(box),
+    rightYIntervalFromBox(box),
+  ]);
+
+  for (const box of boxes) drawBox(box);
+
+  const lines = mergeAndSort(caretSinks);
+
+  for (const line of lines) {
+    for (const [
+      {
+        n,
+        interval: [top, bottom],
+      },
+      i,
+    ] of withIndex(line)) {
       ctx.beginPath();
-      ctx.moveTo(box[0], box[1]);
-      ctx.lineTo(top(nextBox)[0], top(nextBox)[1]);
-      ctx.stroke();
-    }
-    ctx.strokeStyle = "YellowGreen";
-    const belowBox = below(box, boxes);
-    if (belowBox) {
-      ctx.beginPath();
-      ctx.moveTo(box[0], box[1]);
-      ctx.lineTo(top(belowBox)[0], top(belowBox)[1]);
+      ctx.moveTo(...add([n, top], [-5, -5]));
+      ctx.lineTo(...add([n, top], [5, -5]));
+      ctx.moveTo(...add([n, bottom], [-5, 5]));
+      ctx.lineTo(...add([n, bottom], [5, 5]));
+      if (i === 0) {
+        ctx.moveTo(...add([n, top], [-5, -5]));
+        ctx.lineTo(...add([n, bottom], [-5, 5]));
+      }
+      if (i === line.length - 1) {
+        ctx.moveTo(...add([n, top], [5, -5]));
+        ctx.lineTo(...add([n, bottom], [5, 5]));
+      } else {
+        const next = line[i + 1];
+        ctx.moveTo(...add([n, top], [5, -5]));
+        ctx.lineTo(...add([next.n, next.interval[0]], [-5, -5]));
+        ctx.moveTo(...add([n, bottom], [5, 5]));
+        ctx.lineTo(...add([next.n, next.interval[1]], [-5, 5]));
+      }
       ctx.stroke();
     }
   }
+
+  // for (const box of boxes) {
+  //   ctx.strokeStyle = "YellowGreen";
+  //   const belowBox = below(box, boxes);
+  //   if (belowBox) {
+  //     ctx.beginPath();
+  //     ctx.moveTo(box[0], box[1]);
+  //     ctx.lineTo(top(belowBox)[0], top(belowBox)[1]);
+  //     ctx.stroke();
+  //   }
+  // }
 
   if (curCreateBox) ctx.fillRect(...curCreateBox);
 
@@ -112,16 +172,23 @@ const yIntervalFromTop = ([n, top]: [number, number]): YInterval => ({
 // equivalences between objects are equivalent to typed constructions of functions are equivalent to objects fulfilling the same contracts.
 // what if functions could be curried with arguments in any order?
 
+const xBiasedDist = ([x1, y1], [x2, y2]) =>
+  Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 4);
+
 const { mergeAndSort, sortTransitivelyBeside, isAbove } =
   make2DLineFunctions<YInterval>({
-    dist: axisAlignedIntervalDist,
+    dist: (a, b) => {
+      const i = seperatingInterval(a.interval, b.interval);
+      if (i === null) return Math.sqrt((a.n - b.n) ** 2); // intervals overlap so just get 1D distance
+      return xBiasedDist([a.n, i[0]], [b.n, i[1]]);
+    },
     xProj:
       ([p1, p2]) =>
       (p) =>
-        yIntervalFromTop(segProj([top(p1), top(p2)])(top(p))),
+        yIntervalFromTop(segXProj([top(p1), top(p2)])(top(p))),
     isPointLeft: (p1) => (p2) => p1.n < p2.n,
     isPointBelow: (p1) => (p2) => top(p1)[1] > top(p2)[1],
-  }); // TODO make x-biased axisAlignedIntervalDist
+  });
 
 function leftYIntervalFromBox(box: XYWH): YInterval {
   return {

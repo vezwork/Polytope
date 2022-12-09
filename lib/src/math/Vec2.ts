@@ -31,8 +31,12 @@ export const distance = (v1: Vec2, v2: Vec2): number => length(sub(v1, v2));
 
 export const round = (v: Vec2) => v.map(Math.round);
 
-export const proj = (on: Vec2) => (v: Vec2) =>
-  mul(dot(v, on) / dot(on, on), on); // => mul(dot(v, normalize(on)), normalize(on))
+// name ref: https://twitter.com/FreyaHolmer/status/1587900959891472384
+export const basisProj = (base: Vec2) => (v: Vec2) =>
+  dot(v, base) / dot(base, base);
+
+export const proj = (base: Vec2) => (v: Vec2) =>
+  mul(dot(v, base) / dot(base, base), base); // equal to: `mul(dot(v, normalize(base)), normalize(base))`
 
 // reference: https://en.wikipedia.org/wiki/Rotation_matrix
 export const rotate = (v: Vec2, theta: number): Vec2 => [
