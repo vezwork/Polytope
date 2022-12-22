@@ -1,4 +1,4 @@
-import { EndoSetMapWithReverse } from "../data.js";
+import { EndoSetMapWithReverse } from "../structure/data.js";
 import { isAbove, isRight } from "./Line2.js";
 import { Vec2 } from "./Vec2.js";
 

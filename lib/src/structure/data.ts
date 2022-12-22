@@ -1,4 +1,4 @@
-import { skip } from "./Iterable.js";
+import { skip } from "../Iterable.js";
 
 export class SetMap<K, V> extends Map<K, Set<V>> {
   add(key: K, value: V) {
@@ -14,9 +14,11 @@ export class SetMap<K, V> extends Map<K, Set<V>> {
   }
 }
 
-const REVERSE_KEY = Symbol('reverse')
+const REVERSE_KEY = Symbol("reverse");
 
-type SetMapWithReverseArgs<K, V> = ConstructorParameters<typeof SetMap<K, V>> | [{ [REVERSE_KEY]: SetMapWithReverse<V, K> }]
+type SetMapWithReverseArgs<K, V> =
+  | ConstructorParameters<typeof SetMap<K, V>>
+  | [{ [REVERSE_KEY]: SetMapWithReverse<V, K> }];
 
 // A directed graph that keeps track of both the to and from connections between nodes.
 export class SetMapWithReverse<K, V> extends SetMap<K, V> {
@@ -27,12 +29,14 @@ export class SetMapWithReverse<K, V> extends SetMap<K, V> {
   }
 
   constructor(...args: SetMapWithReverseArgs<K, V>) {
-    if (args?.[0]?.[REVERSE_KEY]) { // constructing the reverse
+    if (args?.[0]?.[REVERSE_KEY]) {
+      // constructing the reverse
       super();
       this._reverse = args[0][REVERSE_KEY];
-    } else { // constructing the non-reverse
+    } else {
+      // constructing the non-reverse
       super(...(args as ConstructorParameters<typeof SetMap<K, V>>));
-      this._reverse = new SetMapWithReverse<V, K>({ [REVERSE_KEY]: this })
+      this._reverse = new SetMapWithReverse<V, K>({ [REVERSE_KEY]: this });
     }
   }
 
@@ -56,11 +60,11 @@ export class SetMapWithReverse<K, V> extends SetMap<K, V> {
   }
   delete(key: K) {
     for (const value of this.get(key) ?? [])
-      this.reverse._removeFromReverse(value, key)
-    return super.delete(key)
+      this.reverse._removeFromReverse(value, key);
+    return super.delete(key);
   }
   protected _deleteFromReverse(key: K) {
-    return super.delete(key)
+    return super.delete(key);
   }
   clear() {
     super.clear();
@@ -70,11 +74,11 @@ export class SetMapWithReverse<K, V> extends SetMap<K, V> {
     super.clear();
   }
   replaceKey(key: K, replacementKey: K) {
-    for (const value of this.get(key) ?? []) this.add(replacementKey, value)
-    this.delete(key)
+    for (const value of this.get(key) ?? []) this.add(replacementKey, value);
+    this.delete(key);
   }
   replaceValue(value: V, replacementValue: V) {
-    this.reverse.replaceKey(value, replacementValue)
+    this.reverse.replaceKey(value, replacementValue);
   }
 }
 
@@ -88,12 +92,14 @@ export class EndoSetMapWithReverse<T> extends SetMapWithReverse<T, T> {
   }
 
   constructor(...args: SetMapWithReverseArgs<T, T>) {
-    if (args?.[0]?.[REVERSE_KEY]) { // constructing the reverse
+    if (args?.[0]?.[REVERSE_KEY]) {
+      // constructing the reverse
       super();
       this._reverse = args[0][REVERSE_KEY];
-    } else { // constructing the non-reverse
+    } else {
+      // constructing the non-reverse
       super(...(args as ConstructorParameters<typeof SetMap<T, T>>));
-      this._reverse = new EndoSetMapWithReverse<T>({ [REVERSE_KEY]: this })
+      this._reverse = new EndoSetMapWithReverse<T>({ [REVERSE_KEY]: this });
     }
   }
 
@@ -124,18 +130,20 @@ export class EndoSetMapWithReverse<T> extends SetMapWithReverse<T, T> {
 
   hasPathBetween(key: T, value: T) {
     for (const reachableKey of this.traverseBreadthFirst(key))
-      if (reachableKey === value) return true
-    return false
+      if (reachableKey === value) return true;
+    return false;
   }
 
   hasPathOrReversePathBetween(key: T, value: T) {
-    return this.hasPathBetween(key, value) || this.reverse.hasPathBetween(key, value)
+    return (
+      this.hasPathBetween(key, value) || this.reverse.hasPathBetween(key, value)
+    );
   }
 
   merge(resultKey: T, ...mergeKeys: T[]) {
     for (const key of mergeKeys) {
-      this.replaceKey(key, resultKey)
-      this.replaceValue(key, resultKey)
+      this.replaceKey(key, resultKey);
+      this.replaceValue(key, resultKey);
     }
   }
 
@@ -153,23 +161,27 @@ export class EndoSetMapWithReverse<T> extends SetMapWithReverse<T, T> {
   }
 }
 
-type MapWithReverseArgs<K, V> = ConstructorParameters<typeof Map<K, V>> | [{ [REVERSE_KEY]: ReverseMap<V, K> }]
+type MapWithReverseArgs<K, V> =
+  | ConstructorParameters<typeof Map<K, V>>
+  | [{ [REVERSE_KEY]: ReverseMap<V, K> }];
 export class MapWithReverse<K, V> extends Map<K, V> {
-    // `super.set` may be used in the Map constructor, so this may be initialized already
-    _reverse: ReverseMap<V, K>;
-    get reverse() {
-      return this._reverse;
+  // `super.set` may be used in the Map constructor, so this may be initialized already
+  _reverse: ReverseMap<V, K>;
+  get reverse() {
+    return this._reverse;
+  }
+
+  constructor(...args: MapWithReverseArgs<K, V>) {
+    if (args?.[0]?.[REVERSE_KEY]) {
+      // constructing the reverse
+      super();
+      this._reverse = args[0][REVERSE_KEY];
+    } else {
+      // constructing the non-reverse
+      super(...(args as ConstructorParameters<typeof Map<K, V>>));
+      this._reverse = new ReverseMap<V, K>({ [REVERSE_KEY]: this });
     }
-  
-    constructor(...args: MapWithReverseArgs<K, V>) {
-      if (args?.[0]?.[REVERSE_KEY]) { // constructing the reverse
-        super();
-        this._reverse = args[0][REVERSE_KEY];
-      } else { // constructing the non-reverse
-        super(...(args as ConstructorParameters<typeof Map<K, V>>));
-        this._reverse = new ReverseMap<V, K>({ [REVERSE_KEY]: this })
-      }
-    }
+  }
 
   set(key: K, value: V): this {
     if (!this._reverse) this._reverse = new ReverseMap<V, K>();
@@ -200,7 +212,9 @@ export class MapWithReverse<K, V> extends Map<K, V> {
 
 export type EndoMap<T> = Map<T, T>;
 
-type ReverseMapArgs<K, V> = ConstructorParameters<typeof SetMap<K, V>> | [{ [REVERSE_KEY]: MapWithReverse<V, K> }]
+type ReverseMapArgs<K, V> =
+  | ConstructorParameters<typeof SetMap<K, V>>
+  | [{ [REVERSE_KEY]: MapWithReverse<V, K> }];
 // this is the same as a SetMap except that it has a reverse and cannot have the same value in more than one set.
 export class ReverseMap<K, V> extends SetMap<K, V> {
   // `super.set` may be used in the Map constructor, so this may be initialized already
@@ -210,12 +224,14 @@ export class ReverseMap<K, V> extends SetMap<K, V> {
   }
 
   constructor(...args: ReverseMapArgs<K, V>) {
-    if (args?.[0] && args?.[0][REVERSE_KEY]) { // constructing the reverse
+    if (args?.[0] && args?.[0][REVERSE_KEY]) {
+      // constructing the reverse
       super();
       this._reverse = args[0][REVERSE_KEY];
-    } else { // constructing the non-reverse
+    } else {
+      // constructing the non-reverse
       super(...(args as ConstructorParameters<typeof SetMap<K, V>>));
-      this._reverse = new MapWithReverse<V, K>({ [REVERSE_KEY]: this })
+      this._reverse = new MapWithReverse<V, K>({ [REVERSE_KEY]: this });
     }
   }
 
@@ -247,8 +263,10 @@ export class ReverseMap<K, V> extends SetMap<K, V> {
   }
 }
 
-const INVERSE_KEY = Symbol('inverse')
-type MapWithInverseArgs<K, V> = ConstructorParameters<typeof Map<K, V>> | [{ [INVERSE_KEY]: MapWithInverse<V, K> }]
+const INVERSE_KEY = Symbol("inverse");
+type MapWithInverseArgs<K, V> =
+  | ConstructorParameters<typeof Map<K, V>>
+  | [{ [INVERSE_KEY]: MapWithInverse<V, K> }];
 export class MapWithInverse<K, V> extends Map<K, V> {
   // `super.set` may be used in the Map constructor, so this may be initialized already
   _inverse: MapWithInverse<V, K>;
@@ -257,20 +275,22 @@ export class MapWithInverse<K, V> extends Map<K, V> {
   }
 
   constructor(...args: MapWithInverseArgs<K, V>) {
-    if (args?.[0] && args?.[0][INVERSE_KEY]) { // constructing the INVERSE
+    if (args?.[0] && args?.[0][INVERSE_KEY]) {
+      // constructing the INVERSE
       super();
       this._inverse = args[0][INVERSE_KEY];
-    } else { // constructing the non-reverse
+    } else {
+      // constructing the non-reverse
       super(...(args as ConstructorParameters<typeof Map<K, V>>));
-      this._inverse = new MapWithInverse<V, K>({ [INVERSE_KEY]: this })
+      this._inverse = new MapWithInverse<V, K>({ [INVERSE_KEY]: this });
     }
   }
 
   set(key: K, value: V): this {
     if (!this._inverse) this._inverse = new MapWithInverse<V, K>();
 
-    if (this.has(key)) this.inverse._deleteFromInverse(this.get(key) as V)
-    if (this.inverse.has(value)) super.delete(this.inverse.get(value) as K)
+    if (this.has(key)) this.inverse._deleteFromInverse(this.get(key) as V);
+    if (this.inverse.has(value)) super.delete(this.inverse.get(value) as K);
 
     this.inverse._setFromInverse(value, key);
     super.set(key, value);
@@ -296,7 +316,6 @@ export class MapWithInverse<K, V> extends Map<K, V> {
   }
 }
 
-
 // Could equivalently be called "AutomorphicMap" (https://en.wikipedia.org/wiki/Automorphism)
 // A Set of `EndoMapWithInverse`s and an identity EndoMap generate a group.
 export class EndoMapWithInverse<T> extends MapWithInverse<T, T> {
@@ -306,12 +325,14 @@ export class EndoMapWithInverse<T> extends MapWithInverse<T, T> {
   }
 
   constructor(...args: MapWithInverseArgs<T, T>) {
-    if (args?.[0]?.[INVERSE_KEY]) { // constructing the INVERSE
+    if (args?.[0]?.[INVERSE_KEY]) {
+      // constructing the INVERSE
       super();
       this._inverse = args[0][INVERSE_KEY];
-    } else { // constructing the non-reverse
+    } else {
+      // constructing the non-reverse
       super(...(args as ConstructorParameters<typeof Map<T, T>>));
-      this._inverse = new EndoMapWithInverse<T>({ [INVERSE_KEY]: this })
+      this._inverse = new EndoMapWithInverse<T>({ [INVERSE_KEY]: this });
     }
   }
   set(key: T, value: T): this {
@@ -330,7 +351,7 @@ export class EndoMapWithInverse<T> extends MapWithInverse<T, T> {
     }
   }
 
-  /** 
+  /**
    * yields arrays, each array corresponding to a path in the graph.
    */
   *lines(): Generator<T[]> {

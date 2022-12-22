@@ -1,7 +1,11 @@
-import { findIndex2D, max, min } from "./Arrays.js";
+import { compareIndex2D, findIndex2D, min } from "./Arrays.js";
 import { closestElementToPosition } from "./closestElement.js";
-import { mergeAndSortLines } from "./math/Line2MergeAndSort.js";
-import { CaretSink, horizontalNavMaps } from "./space.js";
+import * as Fn from "./Functions.js";
+import * as Iter from "./Iterable.js";
+import { segXProj } from "./math/Line2.js";
+import { make2DLineFunctions } from "./math/LineT.js";
+import { seperatingInterval } from "./math/NumberInterval.js";
+import { makeTreeFunctions } from "./structure/tree.js";
 
 /**
  * ideas:
@@ -68,6 +72,18 @@ export type FocusFromParentEditorArgs =
       direction: EnterEditorDirection.up | EnterEditorDirection.down;
       x: number;
     };
+
+const parent = (e: EditorElement) =>
+  (e?.closest("[isEditor=true]") as EditorElement) ?? null;
+const descendents = (e: EditorElement) =>
+  e.querySelectorAll(`[isEditor=true]`) as NodeListOf<EditorElement>;
+const children = (e: EditorElement) =>
+  Iter.filter(descendents(e), (d) => parent(d) === e);
+
+const Tree = makeTreeFunctions<EditorElement>({
+  parent,
+  children,
+});
 
 export class EditorElement extends HTMLElement {
   static meta?: EditorMetaObject;
@@ -160,6 +176,9 @@ export class EditorElement extends HTMLElement {
         :host([isFocused=true]) { /* browser :focus happens if children are focused too :( */
           border-right: 2px solid black;
         }
+        :host([isSelected=true]) { /* browser :focus happens if children are focused too :( */
+          outline: 2px solid yellow;
+        }
       `;
     (this.shadowRoot as ShadowRoot).append(
       baseStyleEl,
@@ -175,50 +194,71 @@ export class EditorElement extends HTMLElement {
       this.makeFocused();
     });
     this.addEventListener("mousedown", (e) => {
+      e.preventDefault();
       e.stopPropagation();
-      this.makeFocused();
+      this.closestSinkToPosition([e.clientX, e.clientY])?.makeFocused();
+      clearSelection();
+    });
+    this.addEventListener("mousemove", (e) => {
+      if (e.buttons === 1) {
+        e.preventDefault();
+        e.stopPropagation();
+        const closest = this.closestSinkToPosition([e.clientX, e.clientY]);
+        if (closest) {
+          select(closest);
+          closest.makeFocused();
+        }
+      }
     });
     this.addEventListener("keydown", (e) => {
       if (isArrowKey(e.key)) {
-        this.isParentEditor()
-          ? this.parentOnInputArrow(e.key)
-          : this.leafOnInputArrow(e.key);
+        this.next(e.key)?.makeFocused();
         e.stopPropagation();
       }
     });
   }
 
-  private parentOnInputArrow(
-    key: "ArrowUp" | "ArrowRight" | "ArrowDown" | "ArrowLeft"
-  ) {
-    if (key === "ArrowLeft") {
-      const childEditors = this.childEditors();
-      const lastChildEditor = childEditors[childEditors.length - 1];
-      lastChildEditor.focusFromParentEditor({
-        direction: EnterEditorDirection.right,
-      });
-    } else {
-      this.parentEditor()?.focusFromChildEditor({
-        childEditor: this,
-        direction: exitEditorDirectionFromKey(key),
-        x: this.carryX ?? this.getBoundingClientRect().right,
-      });
-    }
+  next(key: "ArrowUp" | "ArrowRight" | "ArrowDown" | "ArrowLeft") {
+    return this.isParentEditor() ? this.parentNext(key) : this.leafNext(key);
   }
 
-  private leafOnInputArrow(
+  private parentNext(
     key: "ArrowUp" | "ArrowRight" | "ArrowDown" | "ArrowLeft"
-  ) {
-    this.parentEditor()?.focusFromChildEditor({
-      childEditor: this,
-      direction: exitEditorDirectionFromKey(key),
-      x: this.carryX ?? this.getBoundingClientRect().right,
-    });
+  ): EditorElement | null {
+    if (key === "ArrowLeft") {
+      return (
+        this.childEditors().at(-1)!.childFromParentNext({
+          direction: EnterEditorDirection.right,
+        }) ?? null
+      );
+    } else {
+      return (
+        this.parentEditor()?.parentFromChildNext({
+          childEditor: this,
+          direction: exitEditorDirectionFromKey(key),
+          x: this.carryX ?? this.getBoundingClientRect().right,
+        }) ?? null
+      );
+    }
   }
 
   carryX: number | null = null;
 
-  focusFromChildEditor(args: FocusFromChildEditorArgs) {
+  leafNext(
+    key: "ArrowUp" | "ArrowRight" | "ArrowDown" | "ArrowLeft"
+  ): EditorElement | null {
+    return (
+      this.parentEditor()?.parentFromChildNext({
+        childEditor: this,
+        direction: exitEditorDirectionFromKey(key),
+        x: this.carryX ?? this.getBoundingClientRect().right,
+      }) ?? null
+    );
+  }
+
+  // Should make a "next" function (not method), that just looks at data in the
+  // editor to figure out where to go (left, right, up, down topology data)
+  parentFromChildNext(args: FocusFromChildEditorArgs): EditorElement | null {
     const { childEditor, direction } = args;
 
     const childEditors = this.childEditors();
@@ -245,24 +285,28 @@ export class EditorElement extends HTMLElement {
       toChild = this.childBefore(childEditor);
 
     if (toChild) {
-      toChild.focusFromParentEditor({
-        direction: enterDirectionFromExitDirection(direction),
-        x: this.carryX ?? childEditor.getBoundingClientRect().right,
-      });
+      return (
+        toChild.childFromParentNext({
+          direction: enterDirectionFromExitDirection(direction),
+          x: this.carryX ?? childEditor.getBoundingClientRect().right,
+        }) ?? null
+      );
     } else {
       if (direction === ExitEditorDirection.right) {
-        this.makeFocused();
+        return this;
       } else {
-        this.parentEditor()?.focusFromChildEditor({
-          childEditor: this,
-          direction,
-          x: this.carryX ?? this.getBoundingClientRect().right,
-        });
+        return (
+          this.parentEditor()?.parentFromChildNext({
+            childEditor: this,
+            direction,
+            x: this.carryX ?? this.getBoundingClientRect().right,
+          }) ?? null
+        );
       }
     }
   }
 
-  focusFromParentEditor(args: FocusFromParentEditorArgs) {
+  childFromParentNext(args: FocusFromParentEditorArgs): EditorElement | null {
     if (
       args.direction === EnterEditorDirection.up ||
       args.direction === EnterEditorDirection.down
@@ -270,33 +314,31 @@ export class EditorElement extends HTMLElement {
       this.carryX = args.x;
     }
 
-    if (this.isParentEditor()) {
-      this.parentFocusFromParentEditor(args);
-    } else {
-      this.childFocusFromParentEditor(args);
-    }
+    return this.isParentEditor() ? this.parentFromParentNext(args) : this;
   }
 
-  private parentFocusFromParentEditor(args: FocusFromParentEditorArgs) {
+  private parentFromParentNext(
+    args: FocusFromParentEditorArgs
+  ): EditorElement | null {
     const { direction } = args;
     if (direction === EnterEditorDirection.up) {
       const { x } = args;
       const myBound = this.getBoundingClientRect();
       const a = this.closestSinkToPosition([x, myBound.top]);
-      if (a === this) this.makeFocused();
-      else a?.focusFromParentEditor({ direction, x });
+      return a === this
+        ? this
+        : a?.childFromParentNext({ direction, x }) ?? null;
     } else if (direction === EnterEditorDirection.down) {
       const { x } = args;
       const myBound = this.getBoundingClientRect();
       const a = this.closestSinkToPosition([x, myBound.bottom]);
-      if (a === this) this.makeFocused();
-      else a?.focusFromParentEditor({ direction, x });
+      return a === this
+        ? this
+        : a?.childFromParentNext({ direction, x }) ?? null;
     } else if (direction === EnterEditorDirection.left)
-      this.childEditors()[0].focusFromParentEditor(args);
-    else if (direction === EnterEditorDirection.right) this.makeFocused();
-  }
-  private childFocusFromParentEditor(args: FocusFromParentEditorArgs) {
-    this.makeFocused();
+      return this.childEditors()[0].childFromParentNext(args);
+    else if (direction === EnterEditorDirection.right) return this;
+    return null;
   }
 
   getOutput = () =>
@@ -349,9 +391,6 @@ function isArrowKey(
   );
 }
 
-type AnnotatedCaretSink = [number, number] &
-  CaretSink & { data: EditorElement };
-
 function after(
   box: EditorElement,
   boxes: EditorElement[]
@@ -360,7 +399,7 @@ function after(
     lines,
     index: [x, y],
   } = linesAndIndex(box, boxes);
-  return lines[x]?.[y + 1]?.data ?? lines[x + 1]?.[0]?.data ?? null;
+  return lines[x]?.[y + 2]?.data ?? lines[x + 1]?.[0]?.data ?? null;
 }
 
 function below(
@@ -372,7 +411,7 @@ function below(
   const nextLine = lines[index[0] + 1] ?? [];
   return (
     min(nextLine, ({ data }) =>
-      carryX ? numXDist(carryX, data) : xDist(box, data)
+      carryX ? numXDist(carryX, data!) : xDist(box, data!)
     )?.data ?? null
   );
 }
@@ -386,7 +425,7 @@ function before(
     index: [x, y],
   } = linesAndIndex(box, boxes);
   return (
-    lines[x]?.[y - 1]?.data ??
+    lines[x]?.[y - 2]?.data ??
     lines[x - 1]?.[lines[x - 1]?.length - 1]?.data ??
     null
   );
@@ -401,7 +440,7 @@ function above(
   const prevLine = lines[index[0] - 1] ?? [];
   return (
     min(prevLine, ({ data }) =>
-      carryX ? numXDist(carryX, data) : xDist(box, data)
+      carryX ? numXDist(carryX, data!) : xDist(box, data!)
     )?.data ?? null
   );
 }
@@ -424,32 +463,65 @@ function xDist(el1: HTMLElement, el2: HTMLElement): number {
   return 0;
 }
 
+type YInterval = {
+  n: number;
+  interval: [number, number];
+  data?: EditorElement;
+};
+
+const top = ({ n, interval: [top, _] }: YInterval): [number, number] => [
+  n,
+  top,
+]; // assuming interval[0] is top, which is not enforced
+const yIntervalFromTop = ([n, top]: [number, number]): YInterval => ({
+  n,
+  interval: [top, top],
+});
+
+const xBiasedDist = ([x1, y1], [x2, y2]) =>
+  Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 4);
+
+const { mergeAndSort } = make2DLineFunctions<YInterval>({
+  dist: (a, b) => {
+    const i = seperatingInterval(a.interval, b.interval);
+    if (i === null) return Math.sqrt((a.n - b.n) ** 2); // intervals overlap so just get 1D distance
+    return xBiasedDist([a.n, i[0]], [b.n, i[1]]);
+  },
+  // wish these could be editors/polygons that get deconstructed, projected, then reconstructed somehow
+  xProj:
+    ([p1, p2]) =>
+    (p) =>
+      yIntervalFromTop(segXProj([top(p1), top(p2)])(top(p))),
+  isPointLeft: (p1) => (p2) => p1.n < p2.n,
+  isPointBelow: (p1) => (p2) => top(p1)[1] > top(p2)[1],
+});
+
+function leftAndRightYIntervalsFromEditorElement(
+  el: EditorElement
+): [YInterval, YInterval] {
+  const r = getBoundingClientRect(el);
+  const yInterval = {
+    interval: [r.top, r.bottom] as [number, number],
+    data: el,
+  };
+  return [
+    { ...yInterval, n: r.left },
+    { ...yInterval, n: r.right },
+  ];
+}
+
 function linesAndIndex(
-  box: EditorElement,
-  boxes: EditorElement[]
-): { lines: AnnotatedCaretSink[][]; index: [number, number] } {
-  const caretSinks: AnnotatedCaretSink[] = boxes
-    .map((box) => ({ rect: getBoundingClientRect(box), data: box }))
-    .map(({ rect, data }) =>
-      // note that the tuple must be the first arg so that the resulting object has array proto
-      Object.assign([rect.x, rect.y] as [number, number], rect, { data })
-    );
+  el: EditorElement,
+  els: EditorElement[]
+): { lines: YInterval[][]; index: [number, number] } {
+  const caretSinks = els.map(leftAndRightYIntervalsFromEditorElement);
 
-  const nav = horizontalNavMaps(caretSinks);
-  const lines = mergeAndSortLines([...nav.lines()]);
-  console.log("DEEBUUG", nav, lines);
+  const lines = mergeAndSort(caretSinks);
 
-  const index = findIndex2D(lines, (p) => p.data === box);
+  const index = findIndex2D(lines, (p: YInterval) => p.data === el);
 
   return { lines, index };
 }
-
-// limitations:
-// - horizontalNavMaps adds an unecessary pre-step to line calculation.
-//   With the right box distance definition, mergeAndSortLines could do horizontalNavMaps' job.
-// - overlapping boxes may not be handles properly
-// - mergeAndSortLines uses some line functions that have not been thoroughly tested for 0 and 1 point lines.
-// - only the left side of boxes are taken into account in mergeAndSortLines potentially causing bad results when boxes have non-negligible width.
 
 // necessary because `Object.assign` does not see DOMRect properties.
 const getBoundingClientRect = (element: HTMLElement) => {
@@ -457,3 +529,126 @@ const getBoundingClientRect = (element: HTMLElement) => {
     element.getBoundingClientRect();
   return { top, right, bottom, left, width, height, x, y };
 };
+
+let SELECTION_ANCHOR: EditorElement | null = null; //⚓
+let SELECTION_END: EditorElement | null = null;
+// when selection changes the old SELECTION span is cleared and the new one is highlighted
+// function clearSelection()
+function select(editor: EditorElement) {
+  if (SELECTION_ANCHOR === null) {
+    SELECTION_ANCHOR = editor;
+    return;
+  }
+  clearExistingSelection();
+
+  SELECTION_END = editor;
+  for (const e of traverseEditors(SELECTION_ANCHOR, SELECTION_END))
+    e.setAttribute("isSelected", "true");
+}
+
+function clearSelection() {
+  clearExistingSelection();
+  SELECTION_ANCHOR = null;
+  SELECTION_END = null;
+}
+
+function clearExistingSelection() {
+  if (SELECTION_ANCHOR && SELECTION_END) {
+    for (const e of traverseEditors(SELECTION_ANCHOR, SELECTION_END))
+      e.setAttribute("isSelected", "false");
+  }
+}
+
+function* traverseEditors(start: EditorElement, end: EditorElement) {
+  const comp = compareEditorsByOrder(start, end);
+  if (comp === null) return;
+  if (comp === -1) {
+    let cur: EditorElement | null | undefined = start;
+    while (cur) {
+      yield cur; // don't include start when going to the right
+      if (cur === end) return;
+      cur = cur.next("ArrowRight");
+    }
+  }
+  if (comp === 1) {
+    let cur: EditorElement | null | undefined = start;
+    while (cur) {
+      if (cur === end) return;
+      yield cur; // include start when going to the left
+      cur = cur.next("ArrowLeft");
+    }
+  }
+}
+
+// a lot of stuff should just be tree helpers with custom traversal functions
+function compareEditorsByOrder(
+  e1: EditorElement,
+  e2: EditorElement
+): -1 | 0 | 1 | null {
+  const comp = compareEditorsByAncestry(e1, e2);
+  if (comp !== null) return comp;
+  const { common, ancestors1, ancestors2 } = commonAncestor(e1, e2) ?? {};
+  if (!common) return null;
+  return compareInEditors(
+    common.childEditors(),
+    ancestors1!.at(-1) as EditorElement,
+    ancestors2!.at(-1) as EditorElement
+  ); // NO, should be e1 and e2's ancestors in com
+}
+
+function commonAncestor(
+  e1: EditorElement,
+  e2: EditorElement
+): {
+  common: EditorElement;
+  ancestors1: EditorElement[];
+  ancestors2: EditorElement[];
+} | null {
+  const a1 = Array.from(ancestors(e1));
+  const a2 = Array.from(ancestors(e2));
+  for (let i1 = 0; i1 < a1.length; i1++) {
+    for (let i2 = 0; i2 < a2.length; i2++) {
+      if (a1[i1] === a2[i2])
+        return {
+          common: a1[i1],
+          ancestors1: a1.slice(0, i1),
+          ancestors2: a2.slice(0, i2),
+        };
+    }
+  }
+  return null;
+}
+
+function* ancestors(e: EditorElement) {
+  let cur: EditorElement | null = e;
+  yield cur;
+  while ((cur = cur.parentEditor())) yield cur;
+}
+
+function compareEditorsByAncestry(
+  e1: EditorElement,
+  e2: EditorElement
+): -1 | 0 | 1 | null {
+  if (e1 === e2) return 0;
+  let cur: EditorElement | null = e1;
+  while ((cur = cur.parentEditor())) if (cur === e2) return 1;
+  cur = e2;
+  while ((cur = cur.parentEditor())) if (cur === e1) return -1;
+  return null;
+}
+
+function compareInEditors(
+  editors: EditorElement[],
+  e1: EditorElement,
+  e2: EditorElement
+): -1 | 0 | 1 | null {
+  const caretSinks = editors.map(leftAndRightYIntervalsFromEditorElement);
+
+  const lines = mergeAndSort(caretSinks);
+
+  const i1 = findIndex2D(lines, (p: YInterval) => p.data === e1);
+  const i2 = findIndex2D(lines, (p: YInterval) => p.data === e2);
+  if (i1[0] === -1 || i2[0] === -1) return null;
+
+  return compareIndex2D(i1, i2);
+}

@@ -12,6 +12,19 @@ export function findIndex2D<T>(
   );
 }
 
+export function compareIndex2D(
+  i1: [number, number],
+  i2: [number, number]
+): -1 | 0 | 1 {
+  if (i1[0] < i2[0]) return -1;
+  if (i1[0] === i2[0]) {
+    if (i1[1] < i2[1]) return -1;
+    if (i1[1] === i2[1]) return 0;
+    return 1;
+  }
+  return 1;
+}
+
 // finds the maximum valued element
 export function max<T>(els: T[], valueOf: (el: T) => number) {
   return sortFirst(els, (el1, el2) => valueOf(el1) - valueOf(el2));

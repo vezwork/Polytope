@@ -1,5 +1,5 @@
 import { pairs } from "../Iterable.js";
-import { EndoSetMapWithReverse } from "../data.js";
+import { EndoSetMapWithReverse } from "../structure/data.js";
 
 // assumes lines are monotonic in x coord i.e. isPointLeft(l[n], l[n+1]) === true for all l and n.
 export function make2DLineFunctions<T>({
