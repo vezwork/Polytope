@@ -53,7 +53,7 @@ export function make2DLineFunctions<T>({
   }
 
   // assumes lines' points are monotonically increasing in the x coord
-  function mergeAndSort(lines: LineT[]): LineT[] {
+  function mergeAndSort(lines: Iterable<LineT>): LineT[] {
     let newLines = [...lines];
     const aboveMap = EndoSetMapWithReverse.FromBinaryRelation(
       newLines,
@@ -61,7 +61,7 @@ export function make2DLineFunctions<T>({
     );
     const cands = sortTransitivelyBeside({
       isBeside: (l1, l2) => !aboveMap.hasPathOrReversePathBetween(l1, l2),
-    })(lines);
+    })(newLines);
 
     // doneLeft and doneRight keep track of what ends of lines have already been merged (and should be ignored).
     const doneLeft: LineT[] = [];
@@ -115,7 +115,9 @@ export function make2DLineFunctions<T>({
 
   const sortTransitivelyBeside =
     ({ isBeside }: { isBeside: (l1: LineT, l2: LineT) => boolean }) =>
-    (lines: LineT[]): { left: LineT; right: LineT; distance: number }[] => {
+    (
+      lines: Iterable<LineT>
+    ): { left: LineT; right: LineT; distance: number }[] => {
       const cands: { left: LineT; right: LineT; distance: number }[] = [];
       for (const l of lines) {
         for (const ol of lines) {

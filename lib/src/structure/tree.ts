@@ -10,8 +10,8 @@
  *
  */
 
-import * as Fn from "../Functions";
-import * as Iter from "../Iterable";
+import * as Fn from "../Functions.js";
+import * as Iter from "../Iterable.js";
 
 export function makeTreeFunctions<T>({
   parent,
@@ -34,7 +34,8 @@ export function makeTreeFunctions<T>({
     return Iter.filter(children(par), Fn.neq(t));
   };
 
-  const ancestors = (t: T) => Iter.recurse(parent, t, (par) => par === null);
+  const ancestors = (t: T) => Iter.recurse(parent, t, Fn.eq(null));
+  const nodeAndAncestors = (t: T) => Iter.concat([t], ancestors(t));
   const root = (t: T) => Iter.last(Iter.concat([t], ancestors(t)));
 
   const hasParent = (t: T) => parent(t) !== null;
@@ -45,31 +46,33 @@ export function makeTreeFunctions<T>({
   // order: _G_, _GEQ_, _EQ_, _LEQ_, _L_
   // extra: _NEQ_, _NO_
   type PARTIAL_ORDER = ">" | "=" | "<" | "!";
+
   const compareAncestry = (t1: T, t2: T): PARTIAL_ORDER => {
     if (t1 === t2) return "=";
     if (Iter.some(ancestors(t2), Fn.eq(t1))) return ">";
     if (Iter.some(ancestors(t1), Fn.eq(t2))) return "<";
     return "!";
   };
+
   const lowestCommonAncestor = (
     t1: T,
     t2: T
   ): { common: T; path1: T[]; path2: T[] } | null => {
-    for (const [a1, path1] of Iter.withHistory(ancestors(t1)))
-      for (const [a2, path2] of Iter.withHistory(ancestors(t2)))
+    for (const [a1, path1] of Iter.withHistory(nodeAndAncestors(t1)))
+      for (const [a2, path2] of Iter.withHistory(nodeAndAncestors(t2)))
         if (a1 === a2) return { common: a1, path1, path2 };
     return null;
   };
+
   const compareOrder = (t1: T, t2: T): PARTIAL_ORDER => {
     if (t1 === t2) return "=";
-    const comp = compareAncestry(t1, t2);
-    if (comp !== null) return comp;
     const { common, path1, path2 } = lowestCommonAncestor(t1, t2) ?? {};
     if (!common) return "!";
     for (const child of children(common)) {
       if (child === path1?.at(-1)) return ">"; // t1 rep comes first
       if (child === path2?.at(-1)) return "<"; // t2 rep comes first
     }
+    console.error("tree.ts: compareOrder: bad code path");
     return "!"; // should be impossible code path
   };
 

@@ -74,13 +74,13 @@ export type FocusFromParentEditorArgs =
     };
 
 const parent = (e: EditorElement) =>
-  (e?.closest("[isEditor=true]") as EditorElement) ?? null;
+  (e.parentElement?.closest("[isEditor=true]") as EditorElement) ?? null;
 const descendents = (e: EditorElement) =>
   e.querySelectorAll(`[isEditor=true]`) as NodeListOf<EditorElement>;
 const children = (e: EditorElement) =>
   Iter.filter(descendents(e), (d) => parent(d) === e);
 
-const Tree = makeTreeFunctions<EditorElement>({
+const EdElTree = makeTreeFunctions<EditorElement>({
   parent,
   children,
 });
@@ -88,59 +88,25 @@ const Tree = makeTreeFunctions<EditorElement>({
 export class EditorElement extends HTMLElement {
   static meta?: EditorMetaObject;
 
-  parentEditor(): EditorElement | null {
-    // could be optimizing it by caching it against the parent element?
-    return this.parentElement?.closest("[isEditor=true]") ?? null;
-  }
-  rootEditor() {
-    let curAncestor: EditorElement | null = this;
-    while (true) {
-      if (curAncestor?.parentEditor) curAncestor = curAncestor.parentEditor();
-      else return curAncestor;
-    }
-  }
-
-  descendentEditors(): EditorElement[] {
-    return Array.from(this.querySelectorAll(`[isEditor=true]`));
-  }
-  childEditors(): EditorElement[] {
-    const descendents = this.descendentEditors();
-    return descendents.filter(
-      (editor) => !descendents.includes(editor.parentEditor() as EditorElement)
-    );
-  }
-
   // spatial vertical nav
   childAbove(childEditor: EditorElement): EditorElement | null {
-    return above(childEditor, this.childEditors(), this.carryX);
+    return above(childEditor, children(this), this.carryX);
   }
   childBelow(childEditor: EditorElement): EditorElement | null {
-    return below(childEditor, this.childEditors(), this.carryX);
+    return below(childEditor, children(this), this.carryX);
   }
   // html tree ordered horizontal nav
   childAfter(childEditor: EditorElement): EditorElement | null {
-    return after(childEditor, this.childEditors());
+    return after(childEditor, children(this));
   }
   childBefore(childEditor: EditorElement): EditorElement | null {
-    return before(childEditor, this.childEditors());
+    return before(childEditor, children(this));
   }
   // distance to entire child bounding boxes or to just `this`'s right side
   closestSinkToPosition(position: [number, number]): EditorElement | null {
-    return closestElementToPosition(this, this.childEditors(), position);
+    return closestElementToPosition(this, children(this), position);
   }
 
-  isRootEditor(): boolean {
-    return this.parentEditor() === null;
-  }
-  isChildEditor(): boolean {
-    return !this.isRootEditor();
-  }
-  isParentEditor(): boolean {
-    return this.childEditors().length > 0;
-  }
-  isLeafEditor(): boolean {
-    return !this.isParentEditor();
-  }
   isFocused(): boolean {
     return this.getAttribute("isFocused") === "true";
   }
@@ -219,7 +185,9 @@ export class EditorElement extends HTMLElement {
   }
 
   next(key: "ArrowUp" | "ArrowRight" | "ArrowDown" | "ArrowLeft") {
-    return this.isParentEditor() ? this.parentNext(key) : this.leafNext(key);
+    return EdElTree.hasChildren(this)
+      ? this.parentNext(key)
+      : this.leafNext(key);
   }
 
   private parentNext(
@@ -227,13 +195,13 @@ export class EditorElement extends HTMLElement {
   ): EditorElement | null {
     if (key === "ArrowLeft") {
       return (
-        this.childEditors().at(-1)!.childFromParentNext({
+        Iter.last(children(this))?.childFromParentNext({
           direction: EnterEditorDirection.right,
         }) ?? null
       );
     } else {
       return (
-        this.parentEditor()?.parentFromChildNext({
+        parent(this)?.parentFromChildNext({
           childEditor: this,
           direction: exitEditorDirectionFromKey(key),
           x: this.carryX ?? this.getBoundingClientRect().right,
@@ -248,7 +216,7 @@ export class EditorElement extends HTMLElement {
     key: "ArrowUp" | "ArrowRight" | "ArrowDown" | "ArrowLeft"
   ): EditorElement | null {
     return (
-      this.parentEditor()?.parentFromChildNext({
+      parent(this)?.parentFromChildNext({
         childEditor: this,
         direction: exitEditorDirectionFromKey(key),
         x: this.carryX ?? this.getBoundingClientRect().right,
@@ -261,10 +229,7 @@ export class EditorElement extends HTMLElement {
   parentFromChildNext(args: FocusFromChildEditorArgs): EditorElement | null {
     const { childEditor, direction } = args;
 
-    const childEditors = this.childEditors();
-    const focusFromIndex = childEditors.indexOf(childEditor);
-
-    if (focusFromIndex === -1)
+    if (!Iter.some(children(this), Fn.eq(childEditor)))
       throw "focusFromChildEditor: childEditor was not found in the parent";
 
     if (
@@ -296,7 +261,7 @@ export class EditorElement extends HTMLElement {
         return this;
       } else {
         return (
-          this.parentEditor()?.parentFromChildNext({
+          parent(this)?.parentFromChildNext({
             childEditor: this,
             direction,
             x: this.carryX ?? this.getBoundingClientRect().right,
@@ -314,7 +279,7 @@ export class EditorElement extends HTMLElement {
       this.carryX = args.x;
     }
 
-    return this.isParentEditor() ? this.parentFromParentNext(args) : this;
+    return EdElTree.hasChildren(this) ? this.parentFromParentNext(args) : this;
   }
 
   private parentFromParentNext(
@@ -336,20 +301,18 @@ export class EditorElement extends HTMLElement {
         ? this
         : a?.childFromParentNext({ direction, x }) ?? null;
     } else if (direction === EnterEditorDirection.left)
-      return this.childEditors()[0].childFromParentNext(args);
+      return Iter.first(children(this))?.childFromParentNext(args) ?? null;
     else if (direction === EnterEditorDirection.right) return this;
     return null;
   }
 
   getOutput = () =>
-    this.childEditors()
-      .map((editor) => editor.getOutput())
-      .join();
+    Array.from(Iter.map(children(this), (editor) => editor.getOutput())).join();
 
   makeFocused() {
     this.focus({ preventScroll: true });
     this.setAttribute("isFocused", "true");
-    this.parentEditor()?.makeUnfocused();
+    parent(this)?.makeUnfocused();
   }
   makeUnfocused() {
     this.setAttribute("isFocused", "false");
@@ -393,7 +356,7 @@ function isArrowKey(
 
 function after(
   box: EditorElement,
-  boxes: EditorElement[]
+  boxes: Iterable<EditorElement>
 ): EditorElement | null {
   const {
     lines,
@@ -404,7 +367,7 @@ function after(
 
 function below(
   box: EditorElement,
-  boxes: EditorElement[],
+  boxes: Iterable<EditorElement>,
   carryX: number | null
 ): EditorElement | null {
   const { lines, index } = linesAndIndex(box, boxes);
@@ -418,7 +381,7 @@ function below(
 
 function before(
   box: EditorElement,
-  boxes: EditorElement[]
+  boxes: Iterable<EditorElement>
 ): EditorElement | null {
   const {
     lines,
@@ -433,7 +396,7 @@ function before(
 
 function above(
   box: EditorElement,
-  boxes: EditorElement[],
+  boxes: Iterable<EditorElement>,
   carryX: number | null
 ): EditorElement | null {
   const { lines, index } = linesAndIndex(box, boxes);
@@ -512,9 +475,9 @@ function leftAndRightYIntervalsFromEditorElement(
 
 function linesAndIndex(
   el: EditorElement,
-  els: EditorElement[]
+  els: Iterable<EditorElement>
 ): { lines: YInterval[][]; index: [number, number] } {
-  const caretSinks = els.map(leftAndRightYIntervalsFromEditorElement);
+  const caretSinks = Iter.map(els, leftAndRightYIntervalsFromEditorElement);
 
   const lines = mergeAndSort(caretSinks);
 
@@ -560,9 +523,10 @@ function clearExistingSelection() {
 }
 
 function* traverseEditors(start: EditorElement, end: EditorElement) {
-  const comp = compareEditorsByOrder(start, end);
-  if (comp === null) return;
-  if (comp === -1) {
+  const comp = EdElTree.compareOrder(start, end);
+
+  if (comp === "!") return;
+  if (comp === ">") {
     let cur: EditorElement | null | undefined = start;
     while (cur) {
       yield cur; // don't include start when going to the right
@@ -570,7 +534,7 @@ function* traverseEditors(start: EditorElement, end: EditorElement) {
       cur = cur.next("ArrowRight");
     }
   }
-  if (comp === 1) {
+  if (comp === "<") {
     let cur: EditorElement | null | undefined = start;
     while (cur) {
       if (cur === end) return;
@@ -578,77 +542,4 @@ function* traverseEditors(start: EditorElement, end: EditorElement) {
       cur = cur.next("ArrowLeft");
     }
   }
-}
-
-// a lot of stuff should just be tree helpers with custom traversal functions
-function compareEditorsByOrder(
-  e1: EditorElement,
-  e2: EditorElement
-): -1 | 0 | 1 | null {
-  const comp = compareEditorsByAncestry(e1, e2);
-  if (comp !== null) return comp;
-  const { common, ancestors1, ancestors2 } = commonAncestor(e1, e2) ?? {};
-  if (!common) return null;
-  return compareInEditors(
-    common.childEditors(),
-    ancestors1!.at(-1) as EditorElement,
-    ancestors2!.at(-1) as EditorElement
-  ); // NO, should be e1 and e2's ancestors in com
-}
-
-function commonAncestor(
-  e1: EditorElement,
-  e2: EditorElement
-): {
-  common: EditorElement;
-  ancestors1: EditorElement[];
-  ancestors2: EditorElement[];
-} | null {
-  const a1 = Array.from(ancestors(e1));
-  const a2 = Array.from(ancestors(e2));
-  for (let i1 = 0; i1 < a1.length; i1++) {
-    for (let i2 = 0; i2 < a2.length; i2++) {
-      if (a1[i1] === a2[i2])
-        return {
-          common: a1[i1],
-          ancestors1: a1.slice(0, i1),
-          ancestors2: a2.slice(0, i2),
-        };
-    }
-  }
-  return null;
-}
-
-function* ancestors(e: EditorElement) {
-  let cur: EditorElement | null = e;
-  yield cur;
-  while ((cur = cur.parentEditor())) yield cur;
-}
-
-function compareEditorsByAncestry(
-  e1: EditorElement,
-  e2: EditorElement
-): -1 | 0 | 1 | null {
-  if (e1 === e2) return 0;
-  let cur: EditorElement | null = e1;
-  while ((cur = cur.parentEditor())) if (cur === e2) return 1;
-  cur = e2;
-  while ((cur = cur.parentEditor())) if (cur === e1) return -1;
-  return null;
-}
-
-function compareInEditors(
-  editors: EditorElement[],
-  e1: EditorElement,
-  e2: EditorElement
-): -1 | 0 | 1 | null {
-  const caretSinks = editors.map(leftAndRightYIntervalsFromEditorElement);
-
-  const lines = mergeAndSort(caretSinks);
-
-  const i1 = findIndex2D(lines, (p: YInterval) => p.data === e1);
-  const i2 = findIndex2D(lines, (p: YInterval) => p.data === e2);
-  if (i1[0] === -1 || i2[0] === -1) return null;
-
-  return compareIndex2D(i1, i2);
 }

@@ -5,11 +5,5 @@ export const compose =
     f(g(...args));
 export const not = compose((i) => !i);
 
-export const eq =
-  <T>(v1: T) =>
-  (v2: T) =>
-    v1 === v2;
-export const neq =
-  <T>(v1: T) =>
-  (v2: T) =>
-    v1 !== v2;
+export const eq = (v1: unknown) => (v2: unknown) => v1 === v2;
+export const neq = (v1: unknown) => (v2: unknown) => v1 !== v2;

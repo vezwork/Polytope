@@ -1,3 +1,4 @@
+import * as Iter from "./Iterable.js";
 import { clamp } from "./math/Number.js";
 
 export function closestElementBelow<Element extends HTMLElement>(
@@ -31,7 +32,7 @@ export function closestElementAbove<Element extends HTMLElement>(
 
 export function closestElementToPosition<Element extends HTMLElement>(
   el: Element,
-  otherEls: Element[],
+  otherEls: Iterable<Element>,
   position: [number, number]
 ): Element | null {
   const { closestEl, closestDistance } = reduceElsToClosestEl(
@@ -55,12 +56,12 @@ export function closestElementToPosition<Element extends HTMLElement>(
 
 function reduceElsToClosestEl<Element extends HTMLElement>(
   el: Element,
-  otherEls: Element[],
+  otherEls: Iterable<Element>,
   distanceBetween: (rect: DOMRect, otherRect: DOMRect) => number
 ): { closestEl: Element | null; closestDistance: number } {
   // mild spatial nav
   const elBounds = el.getBoundingClientRect();
-  const otherElsWithBounds = otherEls.map((otherEl) => ({
+  const otherElsWithBounds = Iter.map(otherEls, (otherEl) => ({
     otherEl,
     otherElBounds: otherEl.getBoundingClientRect(),
   }));

@@ -3,8 +3,8 @@ export const withHistory = function* <T>(
 ): Generator<[T, T[]]> {
   let history: T[] = [];
   for (const item of iterable) {
-    history.push(item);
     yield [item, history] as [T, T[]];
+    history.push(item);
   }
 };
 export const historyArray = function* <T>(
@@ -71,10 +71,10 @@ export const flatMap = function* <T, Y>(
 };
 export const some = function <T>(
   iterable: Iterable<T>,
-  func: (t: T) => boolean
+  predicate: (t: T) => boolean
 ) {
   for (const item of iterable) {
-    if (func(item)) return true;
+    if (predicate(item)) return true;
   }
   return false;
 };
@@ -92,6 +92,13 @@ export const withIndex = function* <T>(
     yield [item, i] as [T, number];
     i++;
   }
+};
+export const indexOf = <T>(
+  iterable: Iterable<T>,
+  predicate: (t: T, i: number) => boolean
+): number | null => {
+  for (const [item, i] of withIndex(iterable)) if (predicate(item, i)) return i;
+  return null;
 };
 
 // non iteratable inputs:
