@@ -1,6 +1,6 @@
 // https://codepen.io/vezwork/pen/XWZLBVr?editors=1010
 
-import { EndoMapWithInverse } from "./data.js";
+import { EndoMapWithInverse } from "./structure/data.js";
 
 /**
  * https://developer.mozilla.org/en-US/docs/Web/CSS/CSSOM_View/Coordinate_systems#page

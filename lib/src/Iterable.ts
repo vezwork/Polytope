@@ -38,7 +38,7 @@ export const isEmpty = <T>(iterable: Iterable<T>) => {
   for (const _ of iterable) return false;
   return true;
 };
-export const first = <T>(iterable: Iterable<T>) => {
+export const first = <T>(iterable: Iterable<T>): T | undefined => {
   for (const i of iterable) return i;
 };
 export const last = <T>(iterable: Iterable<T>): T | undefined => {

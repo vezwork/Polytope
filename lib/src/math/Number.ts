@@ -1,3 +1,7 @@
+// Works better than Math.max and Math.min when passed as a function argument for some reason
+export const max = (args: number[]) => Math.max(...args);
+export const min = (args: number[]) => Math.min(...args);
+
 export const reflectAngle = (theta1: number, theta2: number): number =>
   theta2 + subAngles(theta1, theta2);
 
@@ -25,6 +29,9 @@ export const mod = (a: number, n: number, nL = 0): number =>
 export const round = (n: number, step = 1): number =>
   Math.round(n / step) * step;
 
+/**
+ * clamps n between min and max inclusive.
+ */
 export const clamp = (min: number, n: number, max: number): number =>
   Math.max(min, Math.min(n, max));
 

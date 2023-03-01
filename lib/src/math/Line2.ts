@@ -1,6 +1,7 @@
+import { arrFork, arrLiftFn } from "../Arrays.js";
 import { pairs } from "../Iterable.js";
-import { clamp } from "./Number.js";
-import { Vec2, add, mul, sub, dot, basisProj } from "./Vec2.js";
+import { clamp, max, min } from "./Number.js";
+import { Vec2, add, mul, sub, dot, basisProj, x, y } from "./Vec2.js";
 
 export type Line2 = Vec2[];
 
@@ -145,3 +146,10 @@ export function areIntersecting(l1: Line2, l2: Line2) {
       if (areSegmentsIntersecting(l1Segment, l2Segment)) return true;
   return false;
 }
+
+const minAndMax = arrFork([min, max]);
+const distanceFromSpan = ([min, max]) => Math.abs(max - min);
+export const width = (ps: Line2) =>
+  distanceFromSpan(minAndMax(arrLiftFn(x)(ps)));
+export const height = (ps: Line2) =>
+  distanceFromSpan(minAndMax(arrLiftFn(y)(ps)));

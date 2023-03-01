@@ -1,0 +1,63 @@
+/*
+
+render(scene, camera)
+
+juxt(
+  over(mathEditor`Inf`, Sigma(), mathEditor`n=1`),
+  mathEditor3`1/n^s`
+)
+
+const φ = mathEditor(`1 + 1/${φ}`)
+
+juxt(
+    dragTargetBox(draggableTriangle()),
+    dragTargetBox()
+)
+*/
+
+type Input = "click";
+
+type RenderPrim = { bounds: [number, number, number, number][] };
+
+type Diagram = (input: Input) => RenderPrim;
+
+const svgRenderPrim = (url: string): RenderPrim => ({
+  bounds: [[0, 0, 25, 25]],
+});
+const junxtRenderPrim = (r1: RenderPrim, r2: RenderPrim) => ({
+  bounds: [...r1.bounds, ...r2.bounds],
+});
+const Sigma: Diagram = (input) => svgRenderPrim("./sigma.svg");
+
+const juxt = (d1: Diagram) => (d2: Diagram) => (input) =>
+  junxtRenderPrim(d1(input), d2(input));
+
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! IMPORTANT STUFF
+type ΔRenderable = { bounds: [number, number, number, number][] }; // diff on diagram part as well!;
+
+type Renderable = { bounds: [number, number, number, number][] } | Diagram2; // should actually be a tree or something
+type Diagram2 = (input: Input) => (prev: Renderable | "init") => ΔRenderable;
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+// type Input = "click";
+
+// type RenderPrim = { bounds: [number, number, number, number][] };
+// type Lens<T> = { get: T, set: (s: T) => null };
+// type SetState = Lens<RenderPrim>;
+
+// type Editor = (s: SetState) => (input: Input) => void;
+
+// type compose = (e1: Editor) => (e2: Editor) => Editor;
+
+// const svgRenderPrim = (url: string): RenderPrim => ({
+//   bounds: [[0, 0, 25, 25]],
+// });
+// const Sigma: Editor = (s) => (input) => s.set(svgRenderPrim("./sigma.svg"));
+// // - can be duplicated in the tree :(
+// // - no way to communicate to parents?
+// const juxt: compose = (e1) => (e2) => (s) => (input) =>
+//   s.set({ bounds: });
+
+// class Editor {
+//     state: Editor | RenderPrim
+// }
