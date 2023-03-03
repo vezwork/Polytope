@@ -1,5 +1,5 @@
 import { positive, XYWH } from "./math/XYWH.js";
-import { findIndex2D, min } from "./Arrays.js";
+import { findIndex2D, worst } from "./Arrays.js";
 import { make2DLineFunctions } from "./math/LineT.js";
 import {
   axisAlignedIntervalDist,
@@ -151,7 +151,7 @@ function below(box: XYWH, boxes: XYWH[]): YInterval | null {
   const { lines, index } = linesAndIndex(box, boxes);
 
   const nextLine = lines[index[0] + 1] ?? [];
-  return min(nextLine, (caretSink) => Math.abs(box[0] - caretSink.n)) ?? null;
+  return worst(nextLine, (caretSink) => Math.abs(box[0] - caretSink.n)) ?? null;
 }
 
 const top = ({ n, interval: [top, _] }: YInterval): [number, number] => [

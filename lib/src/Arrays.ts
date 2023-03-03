@@ -76,11 +76,11 @@ export function wrapLinesAddXIndex2DClamped<T>(
 }
 
 // finds the maximum valued element
-export function max<T>(els: T[], valueOf: (el: T) => number) {
+export function best<T>(els: T[], valueOf: (el: T) => number) {
   return sortFirst(els, (el1, el2) => valueOf(el1) - valueOf(el2));
 }
 
-export function min<T>(els: T[], valueOf: (el: T) => number) {
+export function worst<T>(els: T[], valueOf: (el: T) => number) {
   return sortFirst(els, (el1, el2) => valueOf(el2) - valueOf(el1));
 }
 

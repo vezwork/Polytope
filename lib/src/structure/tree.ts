@@ -76,6 +76,23 @@ export function makeTreeFunctions<T>({
     return "!"; // should be impossible code path
   };
 
+  const superParent =
+    (filter: (t: T) => boolean) =>
+    (t: T): T | null =>
+      Iter.find(ancestors(t), filter);
+  const superChildrenHelper = (filter: (t: T) => boolean) =>
+    function* (t: T): Generator<T> {
+      if (filter(t)) {
+        yield t;
+      } else {
+        yield* Iter.flatMap(children(t), superChildrenHelper(filter));
+      }
+    };
+  const superChildren = (filter: (t: T) => boolean) =>
+    function* (t: T): Generator<T> {
+      yield* Iter.flatMap(children(t), superChildrenHelper(filter));
+    };
+
   return {
     descendentsDepthFirst,
     descendentsBreadthFirst,
@@ -89,6 +106,8 @@ export function makeTreeFunctions<T>({
     compareAncestry,
     lowestCommonAncestor,
     compareOrder,
+    superParent,
+    superChildren,
   };
 
   // future work: helpers... NO, JUST USE ITERABLE HELPERS

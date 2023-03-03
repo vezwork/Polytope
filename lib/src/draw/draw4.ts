@@ -14,15 +14,20 @@ export type DrawTree = {
   caretable?: true;
   d: BoundedDrawable;
   children: DrawTree[];
+  parent: DrawTree | null;
   t: CtxTransform;
 };
 interface Drawable {
-  draw(ctx: CanvasRenderingContext2D, transform: CtxTransform): DrawTree;
+  draw(
+    ctx: CanvasRenderingContext2D,
+    transform: CtxTransform,
+    parent: DrawTree | null
+  ): DrawTree;
 }
 export const draw =
   (ctx: CanvasRenderingContext2D, t: CtxTransform = id) =>
   (d: Drawable) =>
-    d.draw(ctx, t);
+    d.draw(ctx, t, null);
 
 export interface BoundedDrawable extends Drawable {
   readonly w: number;
@@ -31,13 +36,18 @@ export interface BoundedDrawable extends Drawable {
 
 class PathDrawable implements BoundedDrawable {
   constructor(readonly w: number, readonly h: number, readonly path: string) {}
-  draw(ctx: CanvasRenderingContext2D, t: CtxTransform): DrawTree {
+  draw(
+    ctx: CanvasRenderingContext2D,
+    t: CtxTransform,
+    parent: DrawTree | null
+  ): DrawTree {
     ctx.setTransform(...t);
     ctx.fill(new Path2D(this.path));
     ctx.resetTransform();
     return {
       d: this,
       children: [],
+      parent,
       t,
     };
   }
@@ -49,7 +59,11 @@ class LineDrawable implements BoundedDrawable {
     this.w = width(line);
     this.h = height(line);
   }
-  draw(ctx: CanvasRenderingContext2D, t: CtxTransform): DrawTree {
+  draw(
+    ctx: CanvasRenderingContext2D,
+    t: CtxTransform,
+    parent: DrawTree | null
+  ): DrawTree {
     const line = this.line;
     ctx.beginPath();
     if (line[0]) ctx.moveTo(...apply(t)(line[0]));
@@ -61,6 +75,7 @@ class LineDrawable implements BoundedDrawable {
     return {
       d: this,
       children: [],
+      parent,
       t,
     };
   }
@@ -72,7 +87,11 @@ class TextDrawable implements BoundedDrawable {
     readonly text: string,
     readonly fontSize: number
   ) {}
-  draw(ctx: CanvasRenderingContext2D, t: CtxTransform): DrawTree {
+  draw(
+    ctx: CanvasRenderingContext2D,
+    t: CtxTransform,
+    parent: DrawTree | null
+  ): DrawTree {
     ctx.setTransform(...t);
 
     ctx.translate(0, this.h);
@@ -84,6 +103,7 @@ class TextDrawable implements BoundedDrawable {
     return {
       d: this,
       children: [],
+      parent,
       t,
     };
   }
@@ -103,16 +123,23 @@ class TransformDrawable implements BoundedDrawable {
     if (w !== undefined) this.w = w;
     if (h !== undefined) this.h = h;
   }
-  draw(ctx: CanvasRenderingContext2D, t: CtxTransform): DrawTree {
+  draw(
+    ctx: CanvasRenderingContext2D,
+    t: CtxTransform,
+    parent: DrawTree | null
+  ): DrawTree {
     const scaleFactor = length(apply(zeroTranslate(t))([1, 1]));
-    return {
+    const drawTree: DrawTree = {
       d: this,
-      children:
-        scaleFactor < 0.02
-          ? []
-          : [this.drawable.draw(ctx, _(this.transform)(t))], // dont render small stuff
+      children: [],
       t,
+      parent,
     };
+    drawTree.children =
+      scaleFactor < 0.02
+        ? []
+        : [this.drawable.draw(ctx, _(this.transform)(t), drawTree)]; // dont render small stuff
+    return drawTree;
   }
 }
 class EditorDrawable implements BoundedDrawable {
@@ -122,16 +149,24 @@ class EditorDrawable implements BoundedDrawable {
     this.w = drawable.w;
     this.h = drawable.h;
   }
-  draw(ctx: CanvasRenderingContext2D, t: CtxTransform): DrawTree {
-    return {
+  draw(
+    ctx: CanvasRenderingContext2D,
+    t: CtxTransform,
+    parent: DrawTree | null
+  ): DrawTree {
+    const drawTree: DrawTree = {
       caretable: true,
       d: this,
-      children: [this.drawable.draw(ctx, t)],
+      children: [],
       t,
+      parent,
     };
+    drawTree.children = [this.drawable.draw(ctx, t, drawTree)];
+    return drawTree;
   }
 }
 export const editor = (slot: BoundedDrawable) => new EditorDrawable(slot);
+
 class DebugDrawable implements BoundedDrawable {
   readonly w: number;
   readonly h: number;
@@ -139,7 +174,11 @@ class DebugDrawable implements BoundedDrawable {
     this.w = drawable.w;
     this.h = drawable.h;
   }
-  draw(ctx: CanvasRenderingContext2D, t: CtxTransform): DrawTree {
+  draw(
+    ctx: CanvasRenderingContext2D,
+    t: CtxTransform,
+    parent: DrawTree | null
+  ): DrawTree {
     ctx.save();
     ctx.setLineDash([5, 5]);
     ctx.strokeStyle = "red";
@@ -147,11 +186,14 @@ class DebugDrawable implements BoundedDrawable {
     ctx.stroke(new Path2D(`M0 0 h ${this.w} v ${this.h} h ${-this.w} Z`));
     ctx.restore();
 
-    return {
+    const drawTree: DrawTree = {
       d: this,
-      children: [this.drawable.draw(ctx, t)],
+      children: [],
       t,
+      parent,
     };
+    drawTree.children = [this.drawable.draw(ctx, t, drawTree)];
+    return drawTree;
   }
 }
 class Drawables implements BoundedDrawable {
@@ -161,12 +203,19 @@ class Drawables implements BoundedDrawable {
     this.w = drawables.reduce((prev, cur) => Math.max(cur.w, prev), 0);
     this.h = drawables.reduce((prev, cur) => Math.max(cur.h, prev), 0);
   }
-  draw(ctx: CanvasRenderingContext2D, t: CtxTransform): DrawTree {
-    return {
+  draw(
+    ctx: CanvasRenderingContext2D,
+    t: CtxTransform,
+    parent: DrawTree | null
+  ): DrawTree {
+    const drawTree: DrawTree = {
       d: this,
-      children: this.drawables.map((d) => d.draw(ctx, t)),
+      children: [],
       t,
+      parent,
     };
+    drawTree.children = this.drawables.map((d) => d.draw(ctx, t, drawTree));
+    return drawTree;
   }
 }
 export const drawables = (...drawables: BoundedDrawable[]) =>

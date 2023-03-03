@@ -1,4 +1,4 @@
-import { findIndex2D, min, wrapLinesAddXIndex2D } from "./Arrays.js";
+import { findIndex2D, worst, wrapLinesAddXIndex2D } from "./Arrays.js";
 import { closestElementToPosition } from "./closestElement.js";
 import * as Fn from "./Functions.js";
 import * as Iter from "./Iterable.js";
@@ -384,7 +384,7 @@ function below(
     index: [y, x],
   } = linesAndIndex(box, boxes);
   const nextLine = lines[y + 1] ?? [];
-  const closestInNextLine = min(nextLine, ({ data }) =>
+  const closestInNextLine = worst(nextLine, ({ data }) =>
     carryX ? numXDist(carryX, data!) : xDist(box, data!)
   );
   return closestInNextLine?.data ?? null;
@@ -409,7 +409,7 @@ function above(
     index: [y, x],
   } = linesAndIndex(box, boxes);
   const prevLine = lines[y - 1] ?? [];
-  const closestInPrevLine = min(prevLine, ({ data }) =>
+  const closestInPrevLine = worst(prevLine, ({ data }) =>
     carryX ? numXDist(carryX, data!) : xDist(box, data!)
   );
   return closestInPrevLine?.data ?? null;

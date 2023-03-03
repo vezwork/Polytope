@@ -29,6 +29,14 @@ export const _ =
   };
 export const translation = (v: Vec2): CtxTransform => [1, 0, 0, 1, v[0], v[1]];
 export const scale = (s: Vec2): CtxTransform => [s[0], 0, 0, s[1], 0, 0];
+export const rotation = (rad: number): CtxTransform => [
+  Math.cos(rad),
+  -Math.sin(rad),
+  Math.sin(rad),
+  Math.cos(rad),
+  0,
+  0,
+]; //not tested
 
 export const zeroTranslate = (t: CtxTransform): CtxTransform => [
   t[0],

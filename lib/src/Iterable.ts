@@ -93,6 +93,15 @@ export const withIndex = function* <T>(
     i++;
   }
 };
+
+export const find = <T>(
+  iterable: Iterable<T>,
+  predicate: (t: T) => boolean
+): T | null => {
+  for (const item of iterable) if (predicate(item)) return item;
+  return null;
+};
+
 export const indexOf = <T>(
   iterable: Iterable<T>,
   predicate: (t: T, i: number) => boolean
