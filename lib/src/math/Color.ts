@@ -11,7 +11,7 @@ export function rgbFromGradientSample(c1, c2, percent) {
   return [r, g, b];
 }
 
-export function rgbFromNum(num) {
+export function rgbFromNum(num: number) {
   num >>>= 0;
   const b = num & 0xff;
   const g = (num & 0xff00) >>> 8;

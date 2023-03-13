@@ -4,6 +4,12 @@ import { make2DLineFunctions } from "./math/LineT.js";
 import { distance } from "./math/Vec2.js";
 import * as Iter from "./Iterable.js";
 
+export type YInterval<CaretHost> = {
+  n: number;
+  interval: [number, number];
+  data?: CaretHost;
+};
+
 export type Bounds = {
   top: number;
   right: number;
@@ -41,24 +47,21 @@ export function makeCaretNavFunctions<CaretHost>({
     (childEditor: CaretHost): CaretHost | null =>
       before(childEditor, children(editor));
 
-  type YInterval = {
-    n: number;
-    interval: [number, number];
-    data?: CaretHost;
-  };
-
-  const top = ({ n, interval: [top, _] }: YInterval): [number, number] => [
+  const top = ({
     n,
-    top,
-  ]; // assuming interval[0] is top, which is not enforced
-  const yIntervalFromTop = ([n, top]: [number, number]): YInterval => ({
+    interval: [top, _],
+  }: YInterval<CaretHost>): [number, number] => [n, top]; // assuming interval[0] is top, which is not enforced
+  const yIntervalFromTop = ([n, top]: [
+    number,
+    number
+  ]): YInterval<CaretHost> => ({
     n,
     interval: [top, top],
   });
 
   function after(box: CaretHost, boxes: Iterable<CaretHost>): CaretHost | null {
     const ls = lines(boxes);
-    const index = findIndex2D(ls, (p: YInterval) => p.data === box);
+    const index = findIndex2D(ls, (p: YInterval<CaretHost>) => p.data === box);
     const [y1, x1] = wrapLinesAddXIndex2D(ls, index, +2); // 2 YIntervals per box
     return ls[y1]?.[x1]?.data ?? null;
   }
@@ -70,7 +73,7 @@ export function makeCaretNavFunctions<CaretHost>({
     carryX: number | null
   ): CaretHost | null {
     const ls = lines(boxes);
-    const [y, x] = findIndex2D(ls, (p: YInterval) => p.data === box);
+    const [y, x] = findIndex2D(ls, (p: YInterval<CaretHost>) => p.data === box);
     const nextLine = ls[y + 1] ?? [];
     const closestInNextLine = worst(nextLine, ({ data }) =>
       carryX ? numXDist(carryX, data!) : xDist(box, data!)
@@ -87,7 +90,7 @@ export function makeCaretNavFunctions<CaretHost>({
     boxes: Iterable<CaretHost>
   ): CaretHost | null {
     const ls = lines(boxes);
-    const index = findIndex2D(ls, (p: YInterval) => p.data === box);
+    const index = findIndex2D(ls, (p: YInterval<CaretHost>) => p.data === box);
     const [y1, x1] = wrapLinesAddXIndex2D(ls, index, -2); // 2 YIntervals per box
     return ls[y1]?.[x1]?.data ?? null;
   }
@@ -99,7 +102,7 @@ export function makeCaretNavFunctions<CaretHost>({
     carryX: number | null
   ): CaretHost | null {
     const ls = lines(boxes);
-    const [y, x] = findIndex2D(ls, (p: YInterval) => p.data === box);
+    const [y, x] = findIndex2D(ls, (p: YInterval<CaretHost>) => p.data === box);
     const prevLine = ls[y - 1] ?? [];
     const closestInPrevLine = worst(prevLine, ({ data }) =>
       carryX ? numXDist(carryX, data!) : xDist(box, data!)
@@ -133,7 +136,7 @@ export function makeCaretNavFunctions<CaretHost>({
     return closestInLastLine?.data ?? null;
   }
 
-  const { mergeAndSort } = make2DLineFunctions<YInterval>({
+  const { mergeAndSort } = make2DLineFunctions<YInterval<CaretHost>>({
     dist,
     // wish these could be editors/polygons that get deconstructed, projected, then reconstructed somehow
     xProj:
@@ -146,7 +149,7 @@ export function makeCaretNavFunctions<CaretHost>({
 
   function leftAndRightYIntervalsFromEditorElement(
     el: CaretHost
-  ): [YInterval, YInterval] {
+  ): [YInterval<CaretHost>, YInterval<CaretHost>] {
     const r = getBounds(el);
     const yInterval = {
       interval: [r.top, r.bottom] as [number, number],
@@ -158,13 +161,13 @@ export function makeCaretNavFunctions<CaretHost>({
     ];
   }
 
-  function lines(els: Iterable<CaretHost>): YInterval[][] {
+  function lines(els: Iterable<CaretHost>): YInterval<CaretHost>[][] {
     const caretSinks = Iter.map(els, leftAndRightYIntervalsFromEditorElement);
 
     return mergeAndSort(caretSinks);
   }
 
-  function dist(a: YInterval, b: YInterval) {
+  function dist(a: YInterval<CaretHost>, b: YInterval<CaretHost>) {
     const lengths: number[] = [];
     for (let i = 0; i < 1; i += 0.1) {
       const aP = lerp([

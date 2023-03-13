@@ -6,9 +6,11 @@ import {
   translation,
   scale,
   zeroTranslate,
+  unitScaleAndRotation,
 } from "../math/CtxTransform.js";
 import { height, width } from "../math/Line2.js";
-import { Vec2, length } from "../math/Vec2.js";
+import { max } from "../math/Number.js";
+import { Vec2, length, x, y } from "../math/Vec2.js";
 
 export type DrawTree = {
   caretable?: true;
@@ -35,15 +37,29 @@ export interface BoundedDrawable extends Drawable {
 }
 
 class PathDrawable implements BoundedDrawable {
-  constructor(readonly w: number, readonly h: number, readonly path: string) {}
+  private p2d;
+  constructor(
+    readonly w: number,
+    readonly h: number,
+    readonly path: string,
+    readonly isFilled = true,
+    readonly lineWidth = 0
+  ) {
+    this.p2d = new Path2D(this.path);
+  }
   draw(
     ctx: CanvasRenderingContext2D,
     t: CtxTransform,
     parent: DrawTree | null
   ): DrawTree {
+    ctx.save();
     ctx.setTransform(...t);
-    ctx.fill(new Path2D(this.path));
-    ctx.resetTransform();
+    if (this.isFilled) ctx.fill(this.p2d);
+    if (this.lineWidth !== 0) {
+      ctx.lineWidth = this.lineWidth;
+      ctx.stroke(this.p2d);
+    }
+    ctx.restore();
     return {
       d: this,
       children: [],
@@ -56,8 +72,8 @@ class LineDrawable implements BoundedDrawable {
   readonly w: number;
   readonly h: number;
   constructor(readonly line: Vec2[]) {
-    this.w = width(line);
-    this.h = height(line);
+    this.w = max(line.map(x));
+    this.h = max(line.map(y));
   }
   draw(
     ctx: CanvasRenderingContext2D,
@@ -80,6 +96,39 @@ class LineDrawable implements BoundedDrawable {
     };
   }
 }
+class ImageDrawable implements BoundedDrawable {
+  constructor(
+    readonly w: number,
+    readonly h: number,
+    readonly image: CanvasImageSource
+  ) {}
+  draw(
+    ctx: CanvasRenderingContext2D,
+    t: CtxTransform,
+    parent: DrawTree | null
+  ): DrawTree {
+    ctx.setTransform(...t);
+    ctx.drawImage(this.image, 0, 0);
+
+    ctx.resetTransform();
+    return {
+      d: this,
+      children: [],
+      parent,
+      t,
+    };
+  }
+}
+export const image = (
+  image: CanvasImageSource,
+  width = typeof image?.width === "object" && "animVal" in image?.width
+    ? image.width.animVal.value
+    : image.width,
+  height = typeof image?.height === "object" && "animVal" in image?.height
+    ? image.height.animVal.value
+    : image.height
+) => new ImageDrawable(width, height, image);
+
 class TextDrawable implements BoundedDrawable {
   constructor(
     readonly w: number,
@@ -95,7 +144,7 @@ class TextDrawable implements BoundedDrawable {
     ctx.setTransform(...t);
 
     ctx.translate(0, this.h);
-    ctx.font = `${this.fontSize}px serif`;
+    ctx.font = `${this.fontSize}px monospace`;
     ctx.textBaseline = "bottom";
     ctx.fillText(this.text, 0, 0);
 
@@ -136,7 +185,7 @@ class TransformDrawable implements BoundedDrawable {
       parent,
     };
     drawTree.children =
-      scaleFactor < 0.02
+      scaleFactor < 0.1
         ? []
         : [this.drawable.draw(ctx, _(this.transform)(t), drawTree)]; // dont render small stuff
     return drawTree;
@@ -293,8 +342,13 @@ export const padD = (p: Vec2) => (drawable: BoundedDrawable) =>
 
 export const lineD = (line: Vec2[] = []) => new LineDrawable(line);
 
-export const pathD = (path: string, w: number, h: number): PathDrawable =>
-  new PathDrawable(w, h, path);
+export const pathD = (
+  path: string,
+  w: number,
+  h: number,
+  isFilled?: boolean,
+  lineWidth?: number
+): PathDrawable => new PathDrawable(w, h, path, isFilled, lineWidth);
 
 export const textD = (
   text: string,

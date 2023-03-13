@@ -29,6 +29,8 @@ export const length = (v: Vec2): number => Math.sqrt(dot(v, v));
 
 export const normalize = (v: Vec2): Vec2 => mul(1 / length(v), v);
 
+export const setLength = (l: number, v: Vec2): Vec2 => mul(l, normalize(v));
+
 export const angleOf = (v: Vec2): number => Math.atan2(v[1], v[0]);
 
 export const angleBetween = (v1: Vec2, v2: Vec2): number =>

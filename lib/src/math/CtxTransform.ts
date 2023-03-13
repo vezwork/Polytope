@@ -46,6 +46,14 @@ export const zeroTranslate = (t: CtxTransform): CtxTransform => [
   0,
   0,
 ];
+export const unitScaleAndRotation = (t: CtxTransform): CtxTransform => [
+  1,
+  0,
+  0,
+  1,
+  t[4],
+  t[5],
+];
 
 export const addEntries =
   (t1: CtxTransform) =>
