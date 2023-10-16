@@ -16,9 +16,9 @@ constructor({ nodes, edges }) {
 }
 
 const stateMachine = new StateMachine(({
-    "nodes": ["a","b","c"],
-    "edges": [[1],[2],[0]],
-    "positions": [[40, 55],[146, 91],[61, 161]]
-}));
+      "nodes": ["a","b","c"],
+      "edges": [[1],[2],[0]],
+      "positions": [[40, 55],[146, 91],[61, 161]]
+  }));
 
-setInterval(() => output(stateMachine.next()), 1000);
+setInterval(() => Polytope.out(stateMachine.next()), 1000);
