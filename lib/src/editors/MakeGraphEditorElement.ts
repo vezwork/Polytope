@@ -140,7 +140,7 @@ export const MakeGraphEditorElement = (
         this.shadowRoot.append(editor);
         this.blur();
         setTimeout(() => editor.focusEditor());
-        this.fromNode = node;
+        //this.fromNode = node;
         this.render();
         this.parentEditor?.dispatchEvent(
           new CustomEvent("childEditorUpdate", {
@@ -152,7 +152,7 @@ export const MakeGraphEditorElement = (
         );
       });
       this.addEventListener("mouseup", (e) => {
-        const targetEl = (e as any).path[0];
+        const targetEl = (e as MouseEvent).composedPath()[0] as Node;
         const targetNode = this.nodes.find(
           ({ editor }) =>
             editor.contains(targetEl) || editor.shadowRoot.contains(targetEl)

@@ -1,6 +1,6 @@
 export type EditorArgumentObject = {
   parentEditor?: EditorElement;
-  builder?: (input: string) => { output: EditorElement };
+  builder?: (input: string) => { output: EditorElement[] };
 };
 
 export class EditorElement extends HTMLElement {
@@ -9,7 +9,7 @@ export class EditorElement extends HTMLElement {
     isUnstyled?: boolean;
   };
   parentEditor?: EditorElement = undefined;
-  builder?: (input: string) => { output: EditorElement };
+  builder?: (input: string) => { output: EditorElement[] };
   isFocused = false;
 
   constructor(

@@ -97,20 +97,25 @@ export class TextEditorElement extends EditorElement {
     this.addEventListener("mousedown", (e) => {
       if (e.buttons === 1) {
         const pos = this.cursorPosFromMouseEvent(e);
-        this.caret = pos;
-        this.minorCaret = pos;
+        if (pos !== -1) {
+          this.caret = pos;
+          this.minorCaret = pos;
+          this.render();
 
-        this.render();
-        setTimeout(() => this.focusEditor());
+          setTimeout(() => this.focusEditor());
+        }
+
+        //
       }
     });
     this.addEventListener("mousemove", (e) => {
       if (this.isFocused) {
         if (e.buttons === 1) {
           const pos = this.cursorPosFromMouseEvent(e);
-          this.caret = pos;
-
-          this.render();
+          if (pos !== -1) {
+            this.caret = pos;
+            this.render();
+          }
         }
       }
     });

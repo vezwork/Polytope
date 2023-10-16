@@ -125,7 +125,7 @@ export class ForceGraphEditorElement extends EditorElement {
       this.shadowRoot.append(editor);
       this.blur();
       setTimeout(() => editor.focusEditor());
-      this.fromNode = node;
+      //this.fromNode = node;
       this.render();
       new CustomEvent("childEditorUpdate", {
         detail: {
@@ -135,10 +135,12 @@ export class ForceGraphEditorElement extends EditorElement {
       });
     });
     this.addEventListener("mouseup", (e) => {
-      const targetEl = (e as any).path[0];
+      const targetEl = (e as MouseEvent).composedPath()[0] as Node;
       const targetNode = this.nodes.find(
         ({ editor }) =>
-          editor.contains(targetEl) || editor.shadowRoot.contains(targetEl)
+          editor === targetEl ||
+          editor.contains(targetEl) ||
+          editor.shadowRoot.contains(targetEl)
       );
       if (targetNode) {
         if (
